@@ -1,0 +1,8 @@
+# Tool versions for Netlify's mise-based build system.
+# We only need Node — python/ruby/go are listed here with valid versions
+# to prevent Netlify's account-level mise config from pulling non-existent ones.
+[tools]
+node   = "20.18.0"
+python = "3.12.1"
+ruby   = "3.3.5"
+go     = "1.22.5"
