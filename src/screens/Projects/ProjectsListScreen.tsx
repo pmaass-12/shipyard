@@ -13,7 +13,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useToast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
 import { signOut } from '@/lib/auth';
-import { menuOptions, type MenuItem } from '@/api/projects';
+import type { MenuItem } from '@/api/projects';
 import type { NewProjectInput } from '@/types/db';
 
 import { FilterPills }       from './FilterPills';
@@ -49,7 +49,7 @@ export default function ProjectsListScreen() {
   // Project data
   const {
     filteredProjects, counts, activePill, loading, error,
-    setActivePill, handleCreate, handleUpdate, handleDelete,
+    setActivePill, handleCreate, handleDelete,
     handlePause, handleResume, handleShip,
   } = useProjects(userId);
 
