@@ -4,10 +4,10 @@ Each build moves left to right: Engineer → QA → Done.
 
 | Build | Name | Engineer | QA | Done |
 |-------|------|----------|-----|------|
-| 012 | Change Requests UI | ✓ | ⚠ Re-test ready | — |
+| 012 | Change Requests UI | Fix ✓ 2026-03-29 | ⚠ Re-test ready | — |
 | 013 | Project Settings | ✓ | ✓ | ✓ |
-| 014 | Project Hub | ✓ | ⚠ Re-test ready | — |
-| 015 | Screens Builder | ✓ | ⚠ Re-test ready | — |
+| 014 | Project Hub | Fix ✓ 2026-03-29 | ⚠ Re-test ready | — |
+| 015 | Screens Builder | Fix ✓ 2026-03-29 | ⚠ Re-test ready | — |
 | 016 | Feature Workflow | ✓ | ⚠ P1s fixed | — |
 | 006-fix | Phase/Launch rename | ✓ | — | — |
 | 024-fix | Inline project editing | ✓ | — | — |
@@ -29,6 +29,12 @@ Each build moves left to right: Engineer → QA → Done.
 - Fixed P1-016a (useSession → supabase.auth.getSession)
 - Added data-testid to ChangeRequestsScreen, ProjectHubScreen, ScreensScreen, FeatureWorkflowScreen (round 1)
 - Committed bc5878d + a634fed (push pending, requires local terminal)
+
+### Session 5 — data-testid fix handoff notes (2026-03-29)
+- QA blocked 012, 014, 015 — all three for zero data-testid. Fixes already committed in session 4 (commit 8b16085).
+- Created fix READY notes: notes/012-change-requests-ui-fix-READY.md, notes/014-project-hub-fix-READY.md, notes/015-screens-sitemap-fix-READY.md
+- Updated HANDOFFS.md build table with "Fix ✓ 2026-03-29" for 012, 014, 015
+- Push pending — run `git push origin main` from local terminal (3 commits: bc5878d, a634fed, 8b16085)
 
 ### Session 4 — data-testid pass 2 + Fix 006 + Fix 024
 - **Build 012**: Added cr-list, cr-row-{id}, cr-expand-{id}, cr-accept-{id}, cr-reject-{id}, cr-accept-modal, cr-accept-new-feature, cr-accept-link-feature, cr-feature-search, cr-reject-reason, cr-reject-confirm, cr-filter-status, cr-filter-screen, cr-filter-date (new date filter). Fixed P3-012b (duplicate whiteSpace property). Builds 012, 014, 015 → re-test ready.
