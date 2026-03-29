@@ -9,8 +9,12 @@ Each build moves left to right: Engineer → QA → Done.
 | 014 | Project Hub | Fix ✓ 2026-03-29 | ⚠ Re-test ready | — |
 | 015 | Screens Builder | Fix ✓ 2026-03-29 | ⚠ Re-test ready | — |
 | 016 | Feature Workflow | ✓ | ⚠ P1s fixed | — |
-| 006-fix | Phase/Launch rename | ✓ | — | — |
-| 024-fix | Inline project editing | ✓ | — | — |
+| 006-fix | Phase/Launch rename | ✓ 2026-03-29 | — | — |
+| 022 | Human Tasks Global View | ✓ 2026-03-29 ⚠ run migration | — | — |
+| 024-fix | Inline project delete | ✓ 2026-03-29 | — | — |
+| 033 | Feature Workflow Redesign | ⛔ Blocked — run migrations 033+039 first | — | — |
+| 040 | Named Team + PM Chat + Briefing | ⛔ Blocked — contracts + migrations not delivered | — | — |
+| 041 | Import Existing Website | ⛔ Blocked — contracts + migrations not delivered | — | — |
 
 ---
 
@@ -29,6 +33,14 @@ Each build moves left to right: Engineer → QA → Done.
 - Fixed P1-016a (useSession → supabase.auth.getSession)
 - Added data-testid to ChangeRequestsScreen, ProjectHubScreen, ScreensScreen, FeatureWorkflowScreen (round 1)
 - Committed bc5878d + a634fed (push pending, requires local terminal)
+
+### Session 6 — 006-fix, 022, 024-fix (2026-03-29)
+- **006-fix**: Updated display-layer strings — data-testids on MaturityBadge (maturity→phase), PushToProductionModal (push-to-production-modal→launch-modal), ProjectHubScreen (push-to-production-btn→launch-btn). Warning text replaced with informational note. Modal subtitle updated.
+- **022**: Created `src/api/humanTasks.ts`, `src/screens/HumanTasks/HumanTasksScreen.tsx`, added `/tasks` route to App.tsx, wired bell badge in ProjectsListScreen. Updated `src/types/db.ts` with expanded HumanTask types. ⚠️ Requires migration 022_human_tasks.sql to run in Supabase first.
+- **024-fix**: Moved delete confirmation from `DeleteConfirmModal` (full-screen) to inline overlay on `ProjectCard`. Passes `onDelete` as a direct prop; overlay is anchored to the card.
+- **033**: BLOCKED — Paul must run migrations/033_feature_workflow.sql + migrations/039_artifact_coherence.sql in Supabase SQL Editor.
+- **040/041**: BLOCKED — Data Schema has not delivered contracts or migrations for these builds yet.
+- Push pending — run `git push origin main` from local terminal.
 
 ### Session 5 — data-testid fix handoff notes (2026-03-29)
 - QA blocked 012, 014, 015 — all three for zero data-testid. Fixes already committed in session 4 (commit 8b16085).

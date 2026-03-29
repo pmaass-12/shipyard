@@ -606,34 +606,66 @@ export function tourIsStale(s: ProjectSettings): boolean {
   return new Date(s.tour_last_edited_at) > new Date(s.tour_generated_at);
 }
 
-// ── Build 014: Human Tasks + Project Hub Stats ────────────────────────────
+// ── Build 014 + 022: Human Tasks + Project Hub Stats ─────────────────────
 
 export type HumanTaskType =
-  | 'run_migration'
-  | 'push_code'
-  | 'add_env_var'
+  // Feature workflow
+  | 'run_migration'       // Schema step: run SQL in Supabase
+  | 'push_code'           // Code step: push generated files to repo
+  | 'add_env_var'         // Deploy step: add env var to Netlify
+  | 'confirm_preview'     // Preview step: confirm preview URL looks correct
+  | 'sign_off'            // QA step: sign off feature for release
+  // Platform / integrations
   | 'confirm_deploy'
   | 'connect_github'
   | 'connect_netlify'
   | 'set_supabase_url'
+  | 'add_dns_records'
+  | 'connect_stripe_webhook'
+  | 'create_stripe_products'
+  | 'verify_resend_domain'
+  | 'resolve_merge_conflict'
   | 'other';
 
 export type HumanTaskStatus   = 'pending' | 'done' | 'dismissed';
-export type HumanTaskPriority = 'p0' | 'p1';
+export type HumanTaskPriority = 'p0' | 'p1' | 'p2' | 'p3';
 
 export interface HumanTask {
   id:              string;
   project_id:      string;
+  feature_id:      string | null;
+  feature_step_id: string | null;
   title:           string;
   description:     string | null;
   task_type:       HumanTaskType;
   status:          HumanTaskStatus;
   priority:        HumanTaskPriority;
+  step_number:     number | null;       // 1–6; which pipeline step created this
+  context_url:     string | null;       // deep link into Shipyard or external
+  context_label:   string | null;       // button label for context_url
+  global_view:     boolean;             // true = surfaces in global list + bell badge
   created_at:      string;
-  completed_at:    string | null;
-  // Build 016 additions (nullable):
-  feature_id:      string | null;
-  feature_step_id: string | null;
+  completed_at:    string | null;       // legacy from Build 014; prefer resolved_at
+  resolved_at:     string | null;       // set automatically by trigger on done/dismissed
+}
+
+// Build 022: lightweight type for the global task list (view includes denorm project/feature name)
+export interface HumanTaskGlobalRow extends HumanTask {
+  project_name:  string;
+  project_emoji: string | null;
+  feature_name:  string | null;
+}
+
+// Build 022: project hub summary (from human_tasks_summary view)
+export interface HumanTasksSummary {
+  project_id:       string;
+  pending_count:    number;
+  pending_p0:       number;
+  pending_p1:       number;
+  pending_p2:       number;
+  pending_p3:       number;
+  bell_badge_count: number;   // P0 + P1 only
+  resolved_count:   number;
 }
 
 export interface ProjectHubStats {

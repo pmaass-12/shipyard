@@ -6,25 +6,21 @@
  * Contract:        contracts/projects-list-api.md (build 001)
  */
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Anchor, Bell, Plus, User } from 'lucide-react';
 import { useProjects } from '@/hooks/useProjects';
 import { useToast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
 import { signOut } from '@/lib/auth';
+import { getBellBadgeCount, subscribeToHumanTaskChanges } from '@/api/humanTasks';
 import type { MenuItem } from '@/api/projects';
 import type { NewProjectInput } from '@/types/db';
 
-import { FilterPills }       from './FilterPills';
-import { ProjectCard }       from './ProjectCard';
-import { EmptyState }        from './EmptyState';
-import { NewProjectModal }   from './NewProjectModal';
-import { DeleteConfirmModal } from './DeleteConfirmModal';
-
-// ── Types ─────────────────────────────────────────────────────────────────
-
-interface DeleteTarget { id: string; name: string; }
+import { FilterPills }     from './FilterPills';
+import { ProjectCard }     from './ProjectCard';
+import { EmptyState }      from './EmptyState';
+import { NewProjectModal } from './NewProjectModal';
 
 // ── Screen ───────────────────────────────────────────────────────────────
 
@@ -54,9 +50,18 @@ export default function ProjectsListScreen() {
   } = useProjects(userId);
 
   // UI state
-  const [showNewModal,    setShowNewModal]    = useState(false);
-  const [deleteTarget,    setDeleteTarget]    = useState<DeleteTarget | null>(null);
-  const [deleteLoading,   setDeleteLoading]   = useState(false);
+  const [showNewModal,   setShowNewModal]   = useState(false);
+  const [bellBadgeCount, setBellBadgeCount] = useState(0);
+
+  const refreshBellBadge = useCallback(() => {
+    getBellBadgeCount().then(setBellBadgeCount).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    refreshBellBadge();
+    const unsub = subscribeToHumanTaskChanges(refreshBellBadge);
+    return unsub;
+  }, [refreshBellBadge]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
@@ -99,23 +104,20 @@ export default function ProjectsListScreen() {
           showToast('Failed to ship project.', 'error');
         }
         break;
+      // 'delete' is handled inline by ProjectCard — not routed through here
       case 'delete':
-        setDeleteTarget({ id, name: project.name });
         break;
     }
   };
 
-  const onConfirmDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleteLoading(true);
+  const onDeleteProject = async (id: string) => {
+    const project = filteredProjects.find(p => p.id === id);
     try {
-      await handleDelete(deleteTarget.id);
-      showToast(`'${deleteTarget.name}' deleted.`);
-      setDeleteTarget(null);
-    } catch {
+      await handleDelete(id);
+      showToast(`'${project?.name ?? 'Project'}' deleted.`);
+    } catch (err) {
       showToast('Failed to delete project.', 'error');
-    } finally {
-      setDeleteLoading(false);
+      throw err; // re-throw so ProjectCard can clear its loading state
     }
   };
 
@@ -150,18 +152,35 @@ export default function ProjectsListScreen() {
 
           {/* Right actions */}
           <div className="flex items-center gap-2">
-            {/* Notification bell (static — no data model yet) */}
-            <button
+            {/* Notification bell — links to /tasks; badge = P0+P1 pending count */}
+            <Link
+              to="/tasks"
+              data-testid="nav-bell"
               className="relative w-8 h-8 flex items-center justify-center rounded-lg"
               style={{ color: 'var(--color-text-muted)' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-hover)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              aria-label="Notifications"
+              aria-label={`Tasks${bellBadgeCount > 0 ? ` (${bellBadgeCount} pending)` : ''}`}
             >
               <Bell size={17} />
-              {/* Red dot placeholder */}
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
-            </button>
+              {bellBadgeCount > 0 && (
+                <span
+                  data-testid="bell-badge"
+                  className="absolute flex items-center justify-center rounded-full text-white"
+                  style={{
+                    top: 2, right: 2,
+                    minWidth: bellBadgeCount > 9 ? 16 : 14,
+                    height: bellBadgeCount > 9 ? 16 : 14,
+                    fontSize: 9, fontWeight: 700,
+                    background: '#ef4444',
+                    lineHeight: 1,
+                    padding: '0 2px',
+                  }}
+                >
+                  {bellBadgeCount > 99 ? '99+' : bellBadgeCount}
+                </span>
+              )}
+            </Link>
 
             {/* New project button */}
             <button
@@ -274,6 +293,7 @@ export default function ProjectsListScreen() {
                 project={project}
                 onClick={() => navigate(`/projects/${project.id}/screens`)}
                 onAction={onCardAction}
+                onDelete={onDeleteProject}
               />
             ))}
           </div>
@@ -289,14 +309,6 @@ export default function ProjectsListScreen() {
         />
       )}
 
-      {deleteTarget && (
-        <DeleteConfirmModal
-          projectName={deleteTarget.name}
-          loading={deleteLoading}
-          onConfirm={onConfirmDelete}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
     </div>
   );
 }

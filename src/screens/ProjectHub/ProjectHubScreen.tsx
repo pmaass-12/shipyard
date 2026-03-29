@@ -715,7 +715,7 @@ export default function ProjectHubScreen() {
       {project.phase === 'beta' && (
         <Link
           to={`/projects/${projectId}/push`}
-          data-testid="push-to-production-btn"
+          data-testid="launch-btn"
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             width: '100%', padding: '16px 24px', borderRadius: 12,

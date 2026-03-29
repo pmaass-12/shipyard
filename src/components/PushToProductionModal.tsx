@@ -50,7 +50,7 @@ export default function PushToProductionModal({
 
       {/* Modal */}
       <div
-        data-testid="push-to-production-modal"
+        data-testid="launch-modal"
         style={{
           position:     'fixed',
           top:          '50%',
@@ -74,7 +74,7 @@ export default function PushToProductionModal({
           Launch "{projectName}"?
         </h2>
         <p style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>
-          This will mark the project as <strong>Shipped</strong> and trigger downstream generation.
+          This opens your product to the public and triggers your configured launch actions.
         </p>
 
         {/* Production features list */}
@@ -97,15 +97,14 @@ export default function PushToProductionModal({
           )}
         </div>
 
-        {/* Warning: features not included */}
+        {/* Info: features still in Alpha / Beta (informational only — not a blocker) */}
         {notIncluded > 0 && (
           <div style={{
-            background: '#fffbeb', borderRadius: 10, padding: '10px 14px',
-            border: '1px solid #fde68a', marginBottom: 16,
+            background: '#f8f9fa', borderRadius: 10, padding: '10px 14px',
+            border: '1px solid #e5e7eb', marginBottom: 16,
           }}>
-            <p style={{ fontSize: 12, color: '#92400e', fontWeight: 500 }}>
-              ⚠️ {notIncluded} feature{notIncluded !== 1 ? 's' : ''} in Alpha / Beta will{' '}
-              <strong>not</strong> be included in this push.
+            <p style={{ fontSize: 12, color: '#6b7280' }}>
+              ℹ️ {notIncluded} feature{notIncluded !== 1 ? 's' : ''} still in Alpha or Beta — just so you know before you open the doors.
             </p>
           </div>
         )}

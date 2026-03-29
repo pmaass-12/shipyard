@@ -14,6 +14,7 @@ import ProjectHubScreen          from '@/screens/ProjectHub/ProjectHubScreen';  
 import ChangeRequestsScreen      from '@/screens/ChangeRequests/ChangeRequestsScreen'; // Build 012
 import ScreensScreen             from '@/screens/Screens/ScreensScreen';         // Build 015
 import FeatureWorkflowScreen     from '@/screens/Features/FeatureWorkflowScreen'; // Build 016
+import HumanTasksScreen          from '@/screens/HumanTasks/HumanTasksScreen';    // Build 022
 
 // ── App ──────────────────────────────────────────────────────────────────
 export default function App() {
@@ -48,6 +49,9 @@ export default function App() {
 
             {/* Build 016: Feature Workflow */}
             <Route path="/projects/:id/features/:featureId" element={<FeatureWorkflowScreen />} />
+
+            {/* Build 022: Human Tasks Global View */}
+            <Route path="/tasks" element={<HumanTasksScreen />} />
 
             {/* Build 009: What's New screen */}
             <Route path="/projects/:id/whats-new" element={<WhatsNewScreen />} />

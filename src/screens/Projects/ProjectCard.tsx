@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { ContextMenu } from './ContextMenu';
 import {
   getMonogram, getMonogramColors, resolveColor,
@@ -13,10 +13,13 @@ interface ProjectCardProps {
   project:  ProjectSummary;
   onClick:  () => void;
   onAction: (id: string, action: MenuItem['action']) => void;
+  onDelete: (id: string) => Promise<void>;
 }
 
-export function ProjectCard({ project, onClick, onAction }: ProjectCardProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
+export function ProjectCard({ project, onClick, onAction, onDelete }: ProjectCardProps) {
+  const [menuOpen,          setMenuOpen]          = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading,     setDeleteLoading]     = useState(false);
 
   const color   = resolveColor(project);
   const mono    = getMonogramColors(color);
@@ -27,11 +30,27 @@ export function ProjectCard({ project, onClick, onAction }: ProjectCardProps) {
   const monogram = getMonogram(project.name);
 
   const handleMenuAction = (action: MenuItem['action']) => {
+    if (action === 'delete') {
+      setShowDeleteConfirm(true);
+      return;
+    }
     onAction(project.id, action);
+  };
+
+  const handleConfirmDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteLoading(true);
+    try {
+      await onDelete(project.id);
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   return (
     <div
+      data-testid="project-card"
       className="relative rounded-2xl border cursor-pointer transition-all duration-150
         group"
       style={{
@@ -72,6 +91,7 @@ export function ProjectCard({ project, onClick, onAction }: ProjectCardProps) {
         {/* Three-dot menu */}
         <div className="relative" data-menu>
           <button
+            data-testid="context-menu-trigger"
             className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors
               opacity-0 group-hover:opacity-100 sm:opacity-100"
             style={{
@@ -181,6 +201,59 @@ export function ProjectCard({ project, onClick, onAction }: ProjectCardProps) {
           </div>
         ))}
       </div>
+
+      {/* Inline delete confirmation overlay */}
+      {showDeleteConfirm && (
+        <div
+          data-testid="delete-confirm-overlay"
+          data-menu
+          className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center gap-4 animate-fade-in"
+          style={{
+            background:   'rgba(255,255,255,0.97)',
+            backdropFilter: 'blur(2px)',
+            zIndex: 10,
+            padding: '24px',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex flex-col items-center gap-1 text-center">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1"
+              style={{ background: '#fef2f2' }}>
+              <Trash2 size={18} color="#ef4444" />
+            </div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+              Delete "{project.name}"?
+            </p>
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              This cannot be undone.
+            </p>
+          </div>
+          <div className="flex gap-2 w-full">
+            <button
+              data-testid="delete-cancel"
+              onClick={e => { e.stopPropagation(); setShowDeleteConfirm(false); }}
+              disabled={deleteLoading}
+              className="flex-1 py-2 rounded-lg text-sm font-medium border transition-colors"
+              style={{
+                background:  'var(--color-surface)',
+                borderColor: 'var(--color-border)',
+                color:       'var(--color-text)',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              data-testid="delete-confirm"
+              onClick={handleConfirmDelete}
+              disabled={deleteLoading}
+              className="flex-1 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
+              style={{ background: deleteLoading ? '#9ca3af' : '#ef4444' }}
+            >
+              {deleteLoading ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
