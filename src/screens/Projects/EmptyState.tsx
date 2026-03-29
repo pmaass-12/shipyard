@@ -9,7 +9,7 @@ interface EmptyStateProps {
 export function EmptyState({ onCreateClick, isFiltered, filterName }: EmptyStateProps) {
   if (isFiltered) {
     return (
-      <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+      <div data-testid="empty-state" className="col-span-full flex flex-col items-center justify-center py-16 text-center">
         <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
           No <strong>{filterName}</strong> projects.
         </p>
@@ -18,7 +18,7 @@ export function EmptyState({ onCreateClick, isFiltered, filterName }: EmptyState
   }
 
   return (
-    <div className="col-span-full flex flex-col items-center justify-center py-16 px-4 text-center">
+    <div data-testid="empty-state" className="col-span-full flex flex-col items-center justify-center py-16 px-4 text-center">
       {/* Ghost cards behind the CTA card for spatial context */}
       <div className="relative mb-8 w-full max-w-sm">
         <div className="absolute -left-4 top-4 w-full h-32 rounded-2xl border opacity-20"

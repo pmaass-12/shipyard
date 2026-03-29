@@ -16,7 +16,7 @@ const PILLS: { id: FilterPill; label: string }[] = [
 
 export function FilterPills({ active, counts, onChange }: FilterPillsProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto scrollbar-hide py-0.5">
+    <div data-testid="filter-pills" className="flex gap-2 overflow-x-auto scrollbar-hide py-0.5">
       {PILLS.map(pill => {
         const isActive = pill.id === active;
         return (

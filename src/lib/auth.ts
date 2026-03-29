@@ -22,10 +22,15 @@ export async function signUpWithEmail(email: string, password: string) {
   return data;
 }
 
-export async function signInWithGoogle() {
+/**
+ * @param redirectTo  — Optional URL to land on after OAuth completes.
+ *   Defaults to /projects. Pass `window.location.href` from wizard steps
+ *   so the user is returned to the same page, not dropped at /projects.
+ */
+export async function signInWithGoogle(redirectTo?: string) {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${window.location.origin}/projects` },
+    options: { redirectTo: redirectTo ?? `${window.location.origin}/projects` },
   });
   if (error) throw error;
   return data;

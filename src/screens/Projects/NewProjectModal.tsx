@@ -100,6 +100,7 @@ export function NewProjectModal({ onSubmit, onClose }: NewProjectModalProps) {
     >
       {/* Sheet / modal */}
       <div
+        data-testid="new-project-modal"
         className="w-full sm:max-w-[480px] border overflow-y-auto
           sm:rounded-2xl rounded-t-[20px] animate-slide-up sm:animate-fade-in"
         style={{
@@ -276,7 +277,7 @@ export function NewProjectModal({ onSubmit, onClose }: NewProjectModalProps) {
                 type="number"
                 placeholder="0"
                 min={0}
-                step={100}
+                step={1}
                 value={budget}
                 onChange={e => setBudget(e.target.value)}
                 className="w-full h-10 pl-9 pr-3 rounded-lg border text-sm outline-none"

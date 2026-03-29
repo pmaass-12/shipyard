@@ -18,6 +18,7 @@ import type {
   NewProjectInput,
   UpdateProjectInput,
   ProjectStatus,
+  ProjectPhase,
 } from '@/types/db';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -134,6 +135,130 @@ export async function updateProject(
 export const pauseProject  = (id: string) => updateProject(id, { status: 'paused'  });
 export const resumeProject = (id: string) => updateProject(id, { status: 'active'  });
 export const shipProject   = (id: string) => updateProject(id, { status: 'shipped' });
+
+// ── Build 006: Project phase ──────────────────────────────────────────────
+
+/** Fetch the full project_summary view row for a single project. */
+export async function getProjectSummary(projectId: string): Promise<ProjectSummary> {
+  const { data, error } = await supabase
+    .from('project_summary')
+    .select('*')
+    .eq('id', projectId)
+    .single();
+
+  if (error) throw error;
+  return data as ProjectSummary;
+}
+
+/**
+ * Advance project phase from alpha → beta.
+ * The live phase is only reachable via push-to-production.
+ */
+export async function advanceProjectPhase(
+  projectId: string,
+  targetPhase: 'beta'
+): Promise<Project> {
+  const { data, error } = await supabase
+    .from('projects')
+    .update({ phase: targetPhase } as { phase: ProjectPhase })
+    .eq('id', projectId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Build 010: When advancing to beta, kick off SEO generation non-blocking.
+  // Shows "Claude is drafting your SEO…" toast at the call site.
+  if (targetPhase === 'beta') {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.access_token) return;
+      fetch('/api/generate-seo', {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          Authorization:   `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ project_id: projectId }),
+      }).catch(() => { /* non-critical — toast handled at call site */ });
+    });
+  }
+
+  return data as Project;
+}
+
+// ── Build 011: Waitlist ───────────────────────────────────────────────────
+
+/** Toggle waitlist on/off. Takes effect immediately (runtime check, no redeploy). */
+export async function updateWaitlistEnabled(
+  projectId: string,
+  enabled: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from('projects')
+    .update({ waitlist_enabled: enabled })
+    .eq('id', projectId);
+
+  if (error) throw error;
+}
+
+// ── Build 007: Test Mode ───────────────────────────────────────────────────
+
+/** Check whether Test Mode is enabled for a project (omits PIN hash). */
+export async function getTestModeConfig(
+  projectId: string
+): Promise<{ test_mode_enabled: boolean }> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('test_mode_enabled')   // pin intentionally excluded
+    .eq('id', projectId)
+    .single();
+
+  if (error) throw error;
+  return { test_mode_enabled: data.test_mode_enabled as boolean };
+}
+
+/** Toggle Test Mode on/off. PIN hash is preserved when disabling. */
+export async function updateTestModeEnabled(
+  projectId: string,
+  enabled: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from('projects')
+    .update({ test_mode_enabled: enabled })
+    .eq('id', projectId);
+
+  if (error) throw error;
+}
+
+// ── Build 008: Onboarding Tour ────────────────────────────────────────────
+
+/** Toggle onboarding tour on/off. */
+export async function updateTourEnabled(
+  projectId: string,
+  enabled: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from('projects')
+    .update({ onboarding_tour_enabled: enabled })
+    .eq('id', projectId);
+
+  if (error) throw error;
+}
+
+// ── Build 009: What's New ─────────────────────────────────────────────────
+
+/** Toggle What's New on/off. Existing entries are preserved when disabled. */
+export async function updateWhatsNewEnabled(
+  projectId: string,
+  enabled: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from('projects')
+    .update({ whats_new_enabled: enabled })
+    .eq('id', projectId);
+
+  if (error) throw error;
+}
 
 // ── Query 4: Delete a project ─────────────────────────────────────────────
 

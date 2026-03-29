@@ -30,6 +30,7 @@ export function DeleteConfirmModal({
       onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div
+        data-testid="delete-confirm-modal"
         className="w-full max-w-sm rounded-2xl border p-6 shadow-xl animate-fade-in"
         style={{
           background:  'var(--color-surface)',

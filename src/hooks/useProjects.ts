@@ -65,26 +65,43 @@ export function useProjects(currentUserId: string): UseProjectsReturn {
     const now = new Date().toISOString();
 
     const optimistic: ProjectSummary = {
-      id:                   tempId,
-      user_id:              currentUserId,
-      name:                 input.name.trim(),
-      description:          input.description ?? null,
-      emoji:                input.emoji        ?? '🚀',
-      color:                (input.color        ?? 'blue') as ProjectColor,
-      status:               'active',
-      repo_url:             input.repo_url     ?? null,
-      budget_usd:           input.budget_usd   ?? null,
-      tech_stack:           input.tech_stack   ?? [],
-      last_activity_at:     now,
-      created_at:           now,
-      updated_at:           now,
-      screen_count:         0,
-      feature_count:        0,
-      features_done:        0,
-      features_in_progress: 0,
-      pct_complete:         null,
-      open_bug_count:       0,
-      last_deploy_date:     null,
+      id:                      tempId,
+      user_id:                 currentUserId,
+      name:                    input.name.trim(),
+      description:             input.description ?? null,
+      emoji:                   input.emoji        ?? '🚀',
+      color:                   (input.color        ?? 'blue') as ProjectColor,
+      status:                  'active',
+      // Build 006
+      phase:                   'alpha',
+      pushed_to_production_at: null,
+      // Build 007
+      test_mode_enabled:       true,
+      // Build 008
+      onboarding_tour_enabled: true,
+      tour_last_generated_at:  null,
+      // Build 009
+      whats_new_enabled:       true,
+      // Build 011
+      waitlist_enabled:        false,
+      repo_url:                input.repo_url     ?? null,
+      budget_usd:              input.budget_usd   ?? null,
+      tech_stack:              input.tech_stack   ?? [],
+      default_model:           'claude-sonnet-4-6',
+      last_activity_at:        now,
+      created_at:              now,
+      updated_at:              now,
+      screen_count:            0,
+      feature_count:           0,
+      features_done:           0,
+      features_in_progress:    0,
+      pct_complete:            null,
+      open_bug_count:          0,
+      last_deploy_date:        null,
+      // Build 006: maturity counts
+      features_alpha:          0,
+      features_beta:           0,
+      features_production:     0,
     };
 
     setProjects(prev => [optimistic, ...prev]);
