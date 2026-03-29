@@ -6,19 +6,19 @@
  *           8-card nav grid, quick stats row, push-to-production button.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   getProjectHubStats,
   getProject,
   getPendingHumanTasks,
   advanceProjectPhase,
-  resolveHumanTask,
   getSetupChecklistState,
   isSetupComplete,
   nextPhase,
 } from '@/api/projectHub';
-import type { Project, ProjectHubStats, HumanTask } from '@/types/db';
+import { updateProject } from '@/api/projects';
+import type { Project, ProjectHubStats, HumanTask, ProjectColor } from '@/types/db';
 
 // ── Phase badge ────────────────────────────────────────────────────────────
 
@@ -115,6 +115,7 @@ function PhaseBadge({
 
 interface NavCardDef {
   id:          string;
+  testId:      string;
   emoji:       string;
   title:       string;
   description: string;
@@ -126,42 +127,42 @@ interface NavCardDef {
 
 const NAV_CARDS: NavCardDef[] = [
   {
-    id: 'screens', emoji: '🖥', title: 'Screens', description: "Map your app's screens and sitemap.",
+    id: 'screens', testId: 'nav-screens', emoji: '🖥', title: 'Screens', description: "Map your app's screens and sitemap.",
     href: (id) => `/projects/${id}/screens`,
     badgeCount: (s) => s.screen_count || null,
   },
   {
-    id: 'features', emoji: '⚡', title: 'Features', description: 'Plan, build, and ship features.',
+    id: 'features', testId: 'nav-features', emoji: '⚡', title: 'Features', description: 'Plan, build, and ship features.',
     href: (id) => `/projects/${id}/features`,
     badgeCount: (s) => s.feature_count || null,
   },
   {
-    id: 'bugs', emoji: '🐛', title: 'Bugs', description: 'Track and resolve open issues.',
+    id: 'bugs', testId: 'nav-bugs', emoji: '🐛', title: 'Bugs', description: 'Track and resolve open issues.',
     href: (id) => `/projects/${id}/bugs`,
     badgeCount: (s) => s.open_bug_count || null,
   },
   {
-    id: 'change-requests', emoji: '📋', title: 'Change Requests', description: 'Review user feedback and requests.',
+    id: 'change-requests', testId: 'nav-change-requests', emoji: '📋', title: 'Change Requests', description: 'Review user feedback and requests.',
     href: (id) => `/projects/${id}/change-requests`,
     badgeCount: (s) => s.pending_cr_count || null,
   },
   {
-    id: 'seo-aeo', emoji: '🔍', title: 'SEO / AEO', description: 'Optimize for search and AI discovery.',
+    id: 'seo-aeo', testId: 'nav-seo', emoji: '🔍', title: 'SEO / AEO', description: 'Optimize for search and AI discovery.',
     href: (id) => `/projects/${id}/seo`,
   },
   {
-    id: 'admin-console', emoji: '⚙️', title: 'Admin Console', description: 'User management and platform settings.',
+    id: 'admin-console', testId: 'nav-admin', emoji: '⚙️', title: 'Admin Console', description: 'User management and platform settings.',
     href: (id) => `/admin?project=${id}`,
     isLocked: (p) => p.phase === 'alpha',
     lockReason: 'Unlocks in Beta',
   },
   {
-    id: 'deployments', emoji: '🚀', title: 'Deployments', description: 'Track builds and production deploys.',
+    id: 'deployments', testId: 'nav-deployments', emoji: '🚀', title: 'Deployments', description: 'Track builds and production deploys.',
     href: (id) => `/projects/${id}/deployments`,
     badgeCount: (s) => s.deployment_count || null,
   },
   {
-    id: 'data-schema', emoji: '🗄', title: 'Data Schema', description: 'View and manage your database tables.',
+    id: 'data-schema', testId: 'nav-data-schema', emoji: '🗄', title: 'Data Schema', description: 'View and manage your database tables.',
     href: (id) => `/projects/${id}/schema`,
   },
 ];
@@ -180,7 +181,7 @@ function NavCard({
     <Link
       to={locked ? '#' : card.href(project.id)}
       onClick={(e) => locked && e.preventDefault()}
-      data-testid={`nav-card-${card.id}`}
+      data-testid={card.testId}
       style={{
         display: 'flex', flexDirection: 'column', padding: 16,
         border: '1px solid var(--color-border)', borderRadius: 10,
@@ -263,18 +264,38 @@ function SetupChecklist({
   }
 
   return (
-    <div style={{
-      border: '1px solid var(--color-border)', borderRadius: 10,
-      backgroundColor: 'var(--color-surface)', marginBottom: 24,
-      borderLeft: '3px solid var(--color-accent)',
-    }}>
+    <div
+      data-testid="setup-checklist"
+      style={{
+        border: '1px solid var(--color-border)', borderRadius: 10,
+        backgroundColor: 'var(--color-surface)', marginBottom: 24,
+        borderLeft: '3px solid var(--color-accent)',
+      }}
+    >
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 16px', borderBottom: expanded ? '1px solid var(--color-border)' : 'none',
       }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--color-text)' }}>
-          Project Setup
-        </h3>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: 'var(--color-text)' }}>
+            Project Setup
+          </h3>
+          {/* Progress bar */}
+          <div
+            data-testid="project-progress"
+            style={{
+              height: 4, borderRadius: 2, backgroundColor: 'var(--color-border)',
+              overflow: 'hidden', maxWidth: 240,
+            }}
+          >
+            <div style={{
+              height: '100%',
+              width: `${Math.round((steps.filter((s) => s.status === 'done').length / steps.length) * 100)}%`,
+              backgroundColor: complete ? '#30d158' : 'var(--color-accent)',
+              borderRadius: 2, transition: 'width 0.3s',
+            }} />
+          </div>
+        </div>
         {complete && (
           <button
             onClick={() => setExpanded(false)}
@@ -290,6 +311,7 @@ function SetupChecklist({
           {steps.map((step) => (
             <div
               key={step.number}
+              data-testid={`checklist-step-${step.number}`}
               style={{
                 display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 16px',
                 borderBottom: step.number < 6 ? '1px solid var(--color-border)' : 'none',
@@ -331,7 +353,7 @@ function SetupChecklist({
                 {step.status !== 'pending' && step.status !== 'done' && (
                   <Link
                     to={step.ctaHref(project.id)}
-                    data-testid={`setup-step-${step.number}-cta`}
+                    data-testid={`checklist-action-${step.number}`}
                     style={{
                       display: 'inline-block', marginTop: 8, fontSize: 13,
                       color: 'var(--color-accent)', textDecoration: 'none', fontWeight: 600,
@@ -359,6 +381,29 @@ export default function ProjectHubScreen() {
   const [stats,   setStats]     = useState<ProjectHubStats | null>(null);
   const [tasks,   setTasks]     = useState<HumanTask[]>([]);
   const [loading, setLoading]   = useState(true);
+
+  // ── Inline edit state ────────────────────────────────────────────────────
+  const [editingField,    setEditingField]    = useState<string | null>(null);
+  const [editName,        setEditName]        = useState('');
+  const [editDesc,        setEditDesc]        = useState('');
+  const [editTag,         setEditTag]         = useState('');
+  const [savingField,     setSavingField]     = useState<string | null>(null);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+
+  async function saveProjectField(field: string, value: unknown) {
+    if (!projectId) return;
+    setSavingField(field);
+    try {
+      const updated = await updateProject(projectId, { [field]: value } as Parameters<typeof updateProject>[1]);
+      setProject(updated);
+    } catch (err) {
+      console.error('Update failed:', err);
+    } finally {
+      setSavingField(null);
+      setEditingField(null);
+    }
+  }
 
   async function load() {
     if (!projectId) return;
@@ -412,57 +457,210 @@ export default function ProjectHubScreen() {
         border: '1px solid var(--color-border)', borderRadius: 12,
         backgroundColor: 'var(--color-surface)', padding: 24, marginBottom: 20,
       }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ margin: '0 0 6px', fontSize: 30, fontWeight: 800, color: 'var(--color-text)' }}>
-              {project.name}
-            </h1>
-            {project.description && (
-              <p style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--color-text-muted)' }}>
-                {project.description}
-              </p>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <PhaseBadge phase={project.phase} projectId={project.id} onAdvanced={load} />
-              <span style={{
-                padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-                backgroundColor: statusColors[project.status] + '22',
-                color: statusColors[project.status], textTransform: 'capitalize',
-              }}>
-                {project.status}
-              </span>
-              {(project.tech_stack ?? []).map((tag) => (
-                <span key={tag} style={{
-                  padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500,
-                  backgroundColor: 'var(--color-bg)', color: 'var(--color-text-muted)',
-                  border: '1px solid var(--color-border)',
-                }}>
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <button
-            title="Edit project (coming soon)"
+        {/* Name — click to edit inline */}
+        {editingField === 'name' ? (
+          <input
+            autoFocus
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveProjectField('name', editName.trim() || project.name);
+              if (e.key === 'Escape') setEditingField(null);
+            }}
+            onBlur={() => saveProjectField('name', editName.trim() || project.name)}
             style={{
-              padding: '8px 14px', borderRadius: 8,
-              border: '1px solid var(--color-border)', backgroundColor: 'transparent',
-              color: 'var(--color-text-muted)', cursor: 'not-allowed', fontSize: 14,
+              fontSize: 30, fontWeight: 800, color: 'var(--color-text)',
+              border: 'none', borderBottom: '2px solid var(--color-accent)',
+              background: 'transparent', outline: 'none', width: '100%',
+              marginBottom: 8, padding: '0 2px',
+            }}
+          />
+        ) : (
+          <h1
+            onClick={() => { setEditName(project.name); setEditingField('name'); }}
+            title="Click to edit name"
+            style={{
+              margin: '0 0 6px', fontSize: 30, fontWeight: 800, color: 'var(--color-text)',
+              cursor: 'text', display: 'inline-block',
             }}
           >
-            ✏️ Edit
-          </button>
+            {project.name}
+            <span style={{ fontSize: 16, marginLeft: 8, opacity: 0.4, verticalAlign: 'middle' }}>✏️</span>
+          </h1>
+        )}
+
+        {/* Description — click to edit inline */}
+        {editingField === 'description' ? (
+          <input
+            autoFocus
+            value={editDesc}
+            onChange={(e) => setEditDesc(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveProjectField('description', editDesc);
+              if (e.key === 'Escape') setEditingField(null);
+            }}
+            onBlur={() => saveProjectField('description', editDesc)}
+            placeholder="Add a project description…"
+            style={{
+              fontSize: 14, color: 'var(--color-text-muted)',
+              border: 'none', borderBottom: '1px solid var(--color-border)',
+              background: 'transparent', outline: 'none', width: '100%',
+              marginBottom: 12, padding: '0 2px',
+            }}
+          />
+        ) : (
+          <p
+            onClick={() => { setEditDesc(project.description ?? ''); setEditingField('description'); }}
+            title="Click to edit description"
+            style={{
+              margin: '0 0 12px', fontSize: 14, color: 'var(--color-text-muted)',
+              cursor: 'text', minHeight: 20,
+            }}
+          >
+            {project.description || <em style={{ opacity: 0.5 }}>Add a description…</em>}
+          </p>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <PhaseBadge phase={project.phase} projectId={project.id} onAdvanced={load} />
+
+          {/* Status — inline select */}
+          <select
+            data-testid="edit-project-btn"
+            value={project.status}
+            disabled={savingField === 'status'}
+            onChange={(e) => saveProjectField('status', e.target.value)}
+            style={{
+              padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+              backgroundColor: statusColors[project.status] + '22',
+              color: statusColors[project.status],
+              border: `1px solid ${statusColors[project.status]}44`,
+              cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none',
+            }}
+          >
+            {['active', 'paused', 'stalled', 'shipped'].map((s) => (
+              <option key={s} value={s} style={{ textTransform: 'capitalize' }}>{s}</option>
+            ))}
+          </select>
+
+          {/* Color swatch popover */}
+          {(() => {
+            const COLOR_MAP: Record<ProjectColor, string> = {
+              blue: '#0a84ff', purple: '#bf5af2', orange: '#ff9f0a',
+              green: '#30d158', teal: '#5ac8fa', rose: '#ff375f',
+            };
+            const currentHex = COLOR_MAP[project.color ?? 'blue'] ?? '#0a84ff';
+            return (
+              <div ref={colorPickerRef} style={{ position: 'relative', display: 'inline-block' }}>
+                <button
+                  title="Click to change project color"
+                  onClick={() => setShowColorPicker((v) => !v)}
+                  style={{
+                    display: 'inline-block', width: 20, height: 20, borderRadius: '50%',
+                    backgroundColor: currentHex,
+                    cursor: 'pointer', border: '2px solid rgba(255,255,255,0.4)',
+                    boxShadow: '0 0 0 1px var(--color-border)', flexShrink: 0,
+                    padding: 0,
+                  }}
+                />
+                {showColorPicker && (
+                  <div style={{
+                    position: 'absolute', top: '110%', left: 0, zIndex: 30,
+                    backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                    borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                    padding: 10, display: 'flex', gap: 6,
+                  }}>
+                    {(Object.entries(COLOR_MAP) as [ProjectColor, string][]).map(([name, hex]) => (
+                      <button
+                        key={name}
+                        title={name}
+                        onClick={() => { saveProjectField('color', name); setShowColorPicker(false); }}
+                        style={{
+                          width: 22, height: 22, borderRadius: '50%',
+                          backgroundColor: hex, border: 'none', cursor: 'pointer', padding: 0,
+                          boxShadow: project.color === name ? `0 0 0 2px #fff, 0 0 0 4px ${hex}` : 'none',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Tech stack tags */}
+          {(project.tech_stack ?? []).map((tag) => (
+            <span
+              key={tag}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500,
+                backgroundColor: 'var(--color-bg)', color: 'var(--color-text-muted)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              {tag}
+              <button
+                onClick={() => saveProjectField('tech_stack', (project.tech_stack ?? []).filter((t) => t !== tag))}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1,
+                }}
+                title={`Remove ${tag}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+
+          {/* Add tag input */}
+          {editingField === 'tech_stack' ? (
+            <input
+              autoFocus
+              value={editTag}
+              onChange={(e) => setEditTag(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && editTag.trim()) {
+                  const tags = [...(project.tech_stack ?? []), editTag.trim()];
+                  saveProjectField('tech_stack', tags);
+                  setEditTag('');
+                }
+                if (e.key === 'Escape') { setEditingField(null); setEditTag(''); }
+              }}
+              onBlur={() => { setEditingField(null); setEditTag(''); }}
+              placeholder="Tag name…"
+              style={{
+                padding: '2px 8px', borderRadius: 4, fontSize: 11,
+                border: '1px solid var(--color-accent)', outline: 'none',
+                backgroundColor: 'var(--color-bg)', color: 'var(--color-text)',
+                width: 90,
+              }}
+            />
+          ) : (
+            <button
+              onClick={() => setEditingField('tech_stack')}
+              style={{
+                padding: '3px 8px', borderRadius: 4, fontSize: 11,
+                border: '1px dashed var(--color-border)', backgroundColor: 'transparent',
+                color: 'var(--color-text-muted)', cursor: 'pointer',
+              }}
+            >
+              + tag
+            </button>
+          )}
         </div>
       </div>
 
       {/* ── Human tasks amber callout ── */}
       {tasks.length > 0 && (
-        <div style={{
-          padding: '14px 16px', borderRadius: 10, marginBottom: 20,
-          backgroundColor: '#ff9f0a22', border: '1px solid #ff9f0a',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
+        <div
+          data-testid="human-tasks-callout"
+          style={{
+            padding: '14px 16px', borderRadius: 10, marginBottom: 20,
+            backgroundColor: '#ff9f0a22', border: '1px solid #ff9f0a',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}
+        >
           <span style={{ fontSize: 14, fontWeight: 600, color: '#ff9f0a' }}>
             ⚠ {tasks.length} task{tasks.length !== 1 ? 's' : ''} need{tasks.length === 1 ? 's' : ''} your attention
           </span>
@@ -490,9 +688,12 @@ export default function ProjectHubScreen() {
       </div>
 
       {/* ── Quick stats row ── */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28,
-      }}>
+      <div
+        data-testid="quick-stats"
+        style={{
+          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28,
+        }}
+      >
         {[
           { label: 'Screens',      value: stats.screen_count },
           { label: 'Features',     value: stats.feature_count },
@@ -510,7 +711,7 @@ export default function ProjectHubScreen() {
         ))}
       </div>
 
-      {/* ── Push to Production (Beta only) ── */}
+      {/* ── Launch (Beta only) ── */}
       {project.phase === 'beta' && (
         <Link
           to={`/projects/${projectId}/push`}
@@ -523,7 +724,7 @@ export default function ProjectHubScreen() {
             boxSizing: 'border-box',
           }}
         >
-          🚀 Push to Production
+          🚀 Launch
         </Link>
       )}
     </div>

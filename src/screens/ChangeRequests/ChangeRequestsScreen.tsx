@@ -81,7 +81,7 @@ function AnnotationPins({ annotations }: { annotations: CrAnnotation[] }) {
               transform: 'translateX(-50%)',
               backgroundColor: '#1a1a1c', color: '#fff',
               padding: '6px 10px', borderRadius: 6, fontSize: 12,
-              whiteSpace: 'nowrap', maxWidth: 220, whiteSpace: 'normal',
+              maxWidth: 220, whiteSpace: 'normal',
               boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             }}>
               {pin.note}
@@ -143,11 +143,14 @@ function AcceptModal({
       position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
     }}>
-      <div style={{
-        backgroundColor: 'var(--color-surface)', borderRadius: 12,
-        padding: 24, width: 440, maxWidth: '90vw',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-      }}>
+      <div
+        data-testid="cr-accept-modal"
+        style={{
+          backgroundColor: 'var(--color-surface)', borderRadius: 12,
+          padding: 24, width: 440, maxWidth: '90vw',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        }}
+      >
         <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 700, color: 'var(--color-text)' }}>
           Accept Change Request
         </h3>
@@ -158,6 +161,7 @@ function AcceptModal({
             <label key={m} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
               <input
                 type="radio"
+                data-testid={m === 'create' ? 'cr-accept-new-feature' : 'cr-accept-link-feature'}
                 checked={mode === m}
                 onChange={() => setMode(m)}
                 style={{ marginTop: 2 }}
@@ -192,6 +196,7 @@ function AcceptModal({
         {mode === 'link' && (
           <div>
             <input
+              data-testid="cr-feature-search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search features…"
@@ -258,11 +263,9 @@ function AcceptModal({
 function CrCard({
   cr,
   onStatusChange,
-  'data-testid': testId,
 }: {
   cr:             ChangeRequestSummary;
   onStatusChange: (id: string, status: ChangeRequestStatus, featureId?: string) => void;
-  'data-testid'?: string;
 }) {
   const [expanded, setExpanded]         = useState(false);
   const [detail, setDetail]             = useState<{ cr: ChangeRequest; annotations: CrAnnotation[] } | null>(null);
@@ -303,7 +306,7 @@ function CrCard({
   return (
     <>
       <div
-        data-testid={testId}
+        data-testid={`cr-row-${cr.id}`}
         style={{
           border: '1px solid var(--color-border)', borderRadius: 10,
           backgroundColor: 'var(--color-surface)', overflow: 'hidden',
@@ -312,7 +315,7 @@ function CrCard({
       >
         {/* Collapsed card header */}
         <div
-          data-testid={testId ? `${testId}-expand` : undefined}
+          data-testid={`cr-expand-${cr.id}`}
           onClick={handleExpand}
           style={{ display: 'flex', gap: 16, padding: 16, cursor: 'pointer' }}
         >
@@ -415,7 +418,7 @@ function CrCard({
                   <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button
-                        data-testid="cr-accept-btn"
+                        data-testid={`cr-accept-${cr.id}`}
                         onClick={() => setShowAcceptModal(true)}
                         style={{
                           padding: '8px 16px', borderRadius: 6, border: 'none',
@@ -426,7 +429,7 @@ function CrCard({
                         Accept →
                       </button>
                       <button
-                        data-testid="cr-reject-btn"
+                        data-testid={`cr-reject-${cr.id}`}
                         onClick={() => setShowRejectInput((p) => !p)}
                         style={{
                           padding: '8px 16px', borderRadius: 6,
@@ -442,6 +445,7 @@ function CrCard({
                     {showRejectInput && (
                       <div style={{ marginTop: 12 }}>
                         <textarea
+                          data-testid="cr-reject-reason"
                           value={rejectReason}
                           onChange={(e) => setRejectReason(e.target.value)}
                           placeholder="Reason for rejection (optional)"
@@ -453,6 +457,7 @@ function CrCard({
                           }}
                         />
                         <button
+                          data-testid="cr-reject-confirm"
                           onClick={handleReject}
                           disabled={acting}
                           style={{
@@ -557,6 +562,7 @@ export default function ChangeRequestsScreen() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [screenFilter, setScreenFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter]   = useState<string>('all');
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
 
   // Load project for deploy_url (empty state test link)
@@ -610,7 +616,16 @@ export default function ChangeRequestsScreen() {
     { key: 'rejected', label: `Rejected (${crs.filter((c) => c.status === 'rejected').length})` },
   ];
 
-  const filtered = activeTab === 'all' ? crs : crs.filter((c) => c.status === activeTab);
+  const dateFiltered = (() => {
+    if (dateFilter === 'all') return crs;
+    const now = new Date();
+    const cutoff = new Date();
+    if (dateFilter === 'today')  cutoff.setHours(0, 0, 0, 0);
+    if (dateFilter === 'week')   cutoff.setDate(now.getDate() - 7);
+    if (dateFilter === 'month')  cutoff.setMonth(now.getMonth() - 1);
+    return crs.filter((c) => new Date(c.submitted_at) >= cutoff);
+  })();
+  const filtered = (activeTab === 'all' ? dateFiltered : dateFiltered.filter((c) => c.status === activeTab));
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px' }}>
@@ -627,7 +642,7 @@ export default function ChangeRequestsScreen() {
       {/* Filter bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {/* Status pills */}
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div data-testid="cr-filter-status" style={{ display: 'flex', gap: 6 }}>
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -646,10 +661,27 @@ export default function ChangeRequestsScreen() {
           ))}
         </div>
 
+        {/* Date range filter */}
+        <select
+          data-testid="cr-filter-date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          style={{
+            padding: '6px 10px', borderRadius: 6, fontSize: 13,
+            border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)',
+            color: 'var(--color-text)', cursor: 'pointer',
+          }}
+        >
+          <option value="all">All time</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+          <option value="month">This month</option>
+        </select>
+
         {/* Screen dropdown */}
         {screenOptions.length > 0 && (
           <select
-            data-testid="cr-screen-filter"
+            data-testid="cr-filter-screen"
             value={screenFilter}
             onChange={(e) => setScreenFilter(e.target.value)}
             style={{
@@ -672,9 +704,9 @@ export default function ChangeRequestsScreen() {
       ) : filtered.length === 0 ? (
         <EmptyState deployUrl={deployUrl} />
       ) : (
-        <div>
+        <div data-testid="cr-list">
           {filtered.map((cr) => (
-            <CrCard key={cr.id} data-testid={`cr-card-${cr.id}`} cr={cr} onStatusChange={handleStatusChange} />
+            <CrCard key={cr.id} cr={cr} onStatusChange={handleStatusChange} />
           ))}
         </div>
       )}

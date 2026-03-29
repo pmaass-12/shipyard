@@ -114,7 +114,7 @@ function EmptyState({ projectId, onScreensAdded }: {
           Uncheck any you don't want, edit names inline, then add.
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+        <div data-testid="screen-suggestions" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
           {suggestions.map((s, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
@@ -235,24 +235,35 @@ function EmptyState({ projectId, onScreensAdded }: {
 
 // ── Add screen slide-in panel ──────────────────────────────────────────────
 
-function AddScreenPanel({ projectId, onAdded, onClose }: {
-  projectId: string;
-  onAdded:   () => void;
-  onClose:   () => void;
+function AddScreenPanel({
+  projectId, onAdded, onClose,
+  screenId, initialData,
+}: {
+  projectId:    string;
+  onAdded:      () => void;
+  onClose:      () => void;
+  screenId?:    string;
+  initialData?: { name: string; type: ScreenType; description: string; route: string };
 }) {
-  const [name,        setName]        = useState('');
-  const [type,        setType]        = useState<ScreenType>('page');
-  const [route,       setRoute]       = useState('');
-  const [showRoute,   setShowRoute]   = useState(false);
+  const [name,        setName]        = useState(initialData?.name        ?? '');
+  const [type,        setType]        = useState<ScreenType>(initialData?.type ?? 'page');
+  const [description, setDescription] = useState(initialData?.description ?? '');
+  const [route,       setRoute]       = useState(initialData?.route       ?? '');
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState('');
+
+  const isEdit = Boolean(screenId);
 
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
     setError('');
     try {
-      await createScreen(projectId, { name: name.trim(), type, route: route || undefined });
+      if (isEdit && screenId) {
+        await updateScreen(screenId, { name: name.trim(), type, route: route || undefined });
+      } else {
+        await createScreen(projectId, { name: name.trim(), type, route: route || undefined });
+      }
       onAdded();
       onClose();
     } catch (err: unknown) {
@@ -273,15 +284,18 @@ function AddScreenPanel({ projectId, onAdded, onClose }: {
       backgroundColor: 'rgba(0,0,0,0.4)',
       display: 'flex', justifyContent: 'flex-end',
     }}>
-      <div style={{
-        width: 360, height: '100%', backgroundColor: 'var(--color-surface)',
-        boxShadow: '-4px 0 24px rgba(0,0,0,0.2)',
-        display: 'flex', flexDirection: 'column', padding: 24, gap: 16,
-        overflowY: 'auto',
-      }}>
+      <div
+        data-testid="screen-form"
+        style={{
+          width: 360, height: '100%', backgroundColor: 'var(--color-surface)',
+          boxShadow: '-4px 0 24px rgba(0,0,0,0.2)',
+          display: 'flex', flexDirection: 'column', padding: 24, gap: 16,
+          overflowY: 'auto',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--color-text)' }}>
-            Add screen
+            {isEdit ? 'Edit screen' : 'Add screen'}
           </h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--color-text-muted)' }}>✕</button>
         </div>
@@ -291,6 +305,7 @@ function AddScreenPanel({ projectId, onAdded, onClose }: {
             Screen name *
           </label>
           <input
+            data-testid="screen-name-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Dashboard"
@@ -307,6 +322,7 @@ function AddScreenPanel({ projectId, onAdded, onClose }: {
             Screen type
           </label>
           <select
+            data-testid="screen-type-select"
             value={type}
             onChange={(e) => setType(e.target.value as ScreenType)}
             style={{
@@ -321,39 +337,47 @@ function AddScreenPanel({ projectId, onAdded, onClose }: {
           </select>
         </div>
 
-        <button
-          onClick={() => setShowRoute((p) => !p)}
-          style={{
-            background: 'none', border: 'none', color: 'var(--color-accent)',
-            cursor: 'pointer', fontSize: 13, textAlign: 'left', padding: 0,
-            textDecoration: 'underline',
-          }}
-        >
-          {showRoute ? '▾ Hide advanced' : '▸ Advanced (route)'}
-        </button>
+        <div>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-text)', marginBottom: 6 }}>
+            Description
+          </label>
+          <textarea
+            data-testid="screen-description-input"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What does this screen do?"
+            rows={3}
+            style={{
+              width: '100%', padding: '8px 10px', borderRadius: 6, fontSize: 13,
+              border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)',
+              color: 'var(--color-text)', boxSizing: 'border-box', resize: 'vertical',
+              fontFamily: 'inherit',
+            }}
+          />
+        </div>
 
-        {showRoute && (
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-text)', marginBottom: 6 }}>
-              Route
-            </label>
-            <input
-              value={route}
-              onChange={(e) => setRoute(e.target.value)}
-              placeholder="/dashboard"
-              style={{
-                width: '100%', padding: '8px 10px', borderRadius: 6, fontSize: 14,
-                border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)',
-                color: 'var(--color-text)', boxSizing: 'border-box', fontFamily: 'monospace',
-              }}
-            />
-          </div>
-        )}
+        <div>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-text)', marginBottom: 6 }}>
+            Route
+          </label>
+          <input
+            data-testid="screen-route-input"
+            value={route}
+            onChange={(e) => setRoute(e.target.value)}
+            placeholder="/dashboard"
+            style={{
+              width: '100%', padding: '8px 10px', borderRadius: 6, fontSize: 14,
+              border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)',
+              color: 'var(--color-text)', boxSizing: 'border-box', fontFamily: 'monospace',
+            }}
+          />
+        </div>
 
         {error && <p style={{ color: '#ff3b30', fontSize: 13, margin: 0 }}>{error}</p>}
 
         <div style={{ marginTop: 'auto', display: 'flex', gap: 10 }}>
           <button
+            data-testid="screen-save-btn"
             onClick={handleSave}
             disabled={saving || !name.trim()}
             style={{
@@ -363,7 +387,7 @@ function AddScreenPanel({ projectId, onAdded, onClose }: {
               opacity: (saving || !name.trim()) ? 0.6 : 1,
             }}
           >
-            {saving ? 'Adding…' : 'Add screen'}
+            {saving ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save changes' : 'Add screen')}
           </button>
           <button
             onClick={onClose}
@@ -383,25 +407,30 @@ function AddScreenPanel({ projectId, onAdded, onClose }: {
 
 // ── Screen card ────────────────────────────────────────────────────────────
 
-function ScreenCard({ screen, projectId }: { screen: ScreenSummary; projectId: string }) {
+function ScreenCard({
+  screen, projectId, onEdit, onDelete,
+}: {
+  screen:    ScreenSummary;
+  projectId: string;
+  onEdit:    (s: ScreenSummary) => void;
+  onDelete:  (s: ScreenSummary) => void;
+}) {
   return (
-    <Link
-      to={`/projects/${projectId}/screens/${screen.id}`}
+    <div
       data-testid={`screen-card-${screen.id}`}
-      style={{ textDecoration: 'none' }}
-    >
-      <div style={{
+      style={{
         border: '1px solid var(--color-border)', borderRadius: 10,
-        backgroundColor: 'var(--color-surface)', padding: 16,
-        transition: 'box-shadow 0.15s, transform 0.15s', cursor: 'pointer',
+        backgroundColor: 'var(--color-surface)', overflow: 'hidden',
       }}
+    >
+      <Link
+        to={`/projects/${projectId}/screens/${screen.id}`}
+        style={{ textDecoration: 'none', display: 'block', padding: 16 }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)';
-          (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
+          (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg)';
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-          (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+          (e.currentTarget as HTMLElement).style.backgroundColor = '';
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -420,8 +449,37 @@ function ScreenCard({ screen, projectId }: { screen: ScreenSummary; projectId: s
           <CountChip count={screen.open_bug_count}   label="bugs" />
           <CountChip count={screen.pending_cr_count} label="requests" />
         </div>
+      </Link>
+
+      {/* Action strip */}
+      <div style={{
+        borderTop: '1px solid var(--color-border)',
+        display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 12px',
+      }}>
+        <button
+          data-testid={`screen-edit-${screen.id}`}
+          onClick={() => onEdit(screen)}
+          style={{
+            padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+            border: '1px solid var(--color-border)', backgroundColor: 'transparent',
+            color: 'var(--color-text)',
+          }}
+        >
+          Edit
+        </button>
+        <button
+          data-testid={`screen-delete-${screen.id}`}
+          onClick={() => onDelete(screen)}
+          style={{
+            padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+            border: '1px solid #ff3b3044', backgroundColor: 'transparent',
+            color: '#ff3b30',
+          }}
+        >
+          Delete
+        </button>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -504,7 +562,7 @@ function ScreenDetail({ screenId, projectId }: { screenId: string; projectId: st
         {tabs.map(({ key, label }) => (
           <button
             key={key}
-            data-testid={`tab-${key}`}
+            data-testid={`screen-tab-${key}`}
             onClick={() => setTab(key)}
             style={{
               padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
@@ -642,12 +700,15 @@ function ScreenDetail({ screenId, projectId }: { screenId: string; projectId: st
 export default function ScreensScreen() {
   const { id: projectId, screenId } = useParams<{ id: string; screenId?: string }>();
 
-  const [screens,     setScreens]    = useState<ScreenSummary[]>([]);
-  const [loading,     setLoading]    = useState(true);
-  const [isEmpty,     setIsEmpty]    = useState(false);
-  const [showAdd,     setShowAdd]    = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter,  setTypeFilter]  = useState<ScreenType | ''>('');
+  const [screens,        setScreens]       = useState<ScreenSummary[]>([]);
+  const [loading,        setLoading]       = useState(true);
+  const [isEmpty,        setIsEmpty]       = useState(false);
+  const [showAdd,        setShowAdd]       = useState(false);
+  const [editingScreen,  setEditingScreen] = useState<ScreenSummary | null>(null);
+  const [deletingScreen, setDeletingScreen] = useState<ScreenSummary | null>(null);
+  const [deleting,       setDeleting]      = useState(false);
+  const [searchQuery,    setSearchQuery]   = useState('');
+  const [typeFilter,     setTypeFilter]    = useState<ScreenType | ''>('');
 
   const loadScreens = useCallback(async () => {
     if (!projectId) return;
@@ -706,6 +767,7 @@ export default function ScreensScreen() {
           </p>
         </div>
         <button
+          data-testid="add-screen-btn"
           onClick={() => setShowAdd(true)}
           style={{
             padding: '9px 18px', borderRadius: 8, border: 'none',
@@ -753,13 +815,22 @@ export default function ScreensScreen() {
       ) : screens.length === 0 ? (
         <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>No screens match your search.</p>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: 14,
-        }}>
+        <div
+          data-testid="screens-list"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: 14,
+          }}
+        >
           {screens.map((screen) => (
-            <ScreenCard key={screen.id} screen={screen} projectId={projectId!} />
+            <ScreenCard
+              key={screen.id}
+              screen={screen}
+              projectId={projectId!}
+              onEdit={(s) => setEditingScreen(s)}
+              onDelete={(s) => setDeletingScreen(s)}
+            />
           ))}
         </div>
       )}
@@ -771,6 +842,78 @@ export default function ScreensScreen() {
           onAdded={loadScreens}
           onClose={() => setShowAdd(false)}
         />
+      )}
+
+      {/* Edit screen panel */}
+      {editingScreen && (
+        <AddScreenPanel
+          projectId={projectId!}
+          screenId={editingScreen.id}
+          initialData={{
+            name:        editingScreen.name,
+            type:        editingScreen.type,
+            description: '',
+            route:       editingScreen.route ?? '',
+          }}
+          onAdded={loadScreens}
+          onClose={() => setEditingScreen(null)}
+        />
+      )}
+
+      {/* Delete confirm dialog */}
+      {deletingScreen && (
+        <div
+          data-testid="screen-delete-confirm"
+          style={{
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
+          }}
+        >
+          <div style={{
+            backgroundColor: 'var(--color-surface)', borderRadius: 12,
+            padding: 24, width: 360, maxWidth: '90vw',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: 17, fontWeight: 700, color: 'var(--color-text)' }}>
+              Delete "{deletingScreen.name}"?
+            </h3>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: 'var(--color-text-muted)' }}>
+              This will soft-delete the screen. Features and bugs linked to it won't be affected.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setDeletingScreen(null)}
+                style={{
+                  padding: '8px 16px', borderRadius: 6,
+                  border: '1px solid var(--color-border)', backgroundColor: 'transparent',
+                  color: 'var(--color-text)', cursor: 'pointer', fontSize: 14,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    await deleteScreen(deletingScreen.id);
+                    setDeletingScreen(null);
+                    loadScreens();
+                  } catch (err) { console.error(err); }
+                  finally { setDeleting(false); }
+                }}
+                disabled={deleting}
+                style={{
+                  padding: '8px 16px', borderRadius: 6, border: 'none',
+                  backgroundColor: '#ff3b30', color: '#fff',
+                  cursor: 'pointer', fontSize: 14, fontWeight: 600,
+                  opacity: deleting ? 0.6 : 1,
+                }}
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
