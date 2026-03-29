@@ -123,6 +123,7 @@ function EmptyState({ projectId, onScreensAdded }: {
             }}>
               <input
                 type="checkbox"
+                data-testid={`suggestion-checkbox-${i}`}
                 checked={s.checked}
                 onChange={() => setSuggestions((prev) => prev.map((p, j) => j === i ? { ...p, checked: !p.checked } : p))}
               />
@@ -144,6 +145,7 @@ function EmptyState({ projectId, onScreensAdded }: {
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button
+            data-testid="add-selected-btn"
             onClick={handleAddSelected}
             disabled={adding || !suggestions.some((s) => s.checked)}
             style={{
@@ -196,6 +198,7 @@ function EmptyState({ projectId, onScreensAdded }: {
       {error && <p style={{ color: '#ff3b30', fontSize: 13, marginBottom: 10 }}>{error}</p>}
 
       <button
+        data-testid="generate-screens-btn"
         onClick={handleGenerate}
         disabled={generating || !description.trim()}
         style={{
@@ -384,6 +387,7 @@ function ScreenCard({ screen, projectId }: { screen: ScreenSummary; projectId: s
   return (
     <Link
       to={`/projects/${projectId}/screens/${screen.id}`}
+      data-testid={`screen-card-${screen.id}`}
       style={{ textDecoration: 'none' }}
     >
       <div style={{
@@ -500,6 +504,7 @@ function ScreenDetail({ screenId, projectId }: { screenId: string; projectId: st
         {tabs.map(({ key, label }) => (
           <button
             key={key}
+            data-testid={`tab-${key}`}
             onClick={() => setTab(key)}
             style={{
               padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer',
@@ -715,6 +720,7 @@ export default function ScreensScreen() {
       {/* Search + filter bar */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
         <input
+          data-testid="screen-search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search screens…"
@@ -725,6 +731,7 @@ export default function ScreensScreen() {
           }}
         />
         <select
+          data-testid="type-filter"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as ScreenType | '')}
           style={{

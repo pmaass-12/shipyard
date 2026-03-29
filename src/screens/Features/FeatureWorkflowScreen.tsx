@@ -12,7 +12,7 @@ import {
   useState, useEffect, useRef, useCallback,
 } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useSession } from '@supabase/auth-helpers-react';
+import { supabase } from '@/lib/supabase';
 import {
   getFeatureWithSteps,
   getPendingTasksForStep,
@@ -592,6 +592,7 @@ function StepAccordion({
     }}>
       {/* Header */}
       <button
+        data-testid={`step-${step.step_number}-header`}
         onClick={renderState !== 'locked' ? onToggle : undefined}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 10,
@@ -714,10 +715,10 @@ function StepAccordion({
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={handleApprove} disabled={acting} style={btnStyle('success')}>
+                  <button data-testid={`step-${step.step_number}-approve`} onClick={handleApprove} disabled={acting} style={btnStyle('success')}>
                     ✓ Approve
                   </button>
-                  <button onClick={() => setShowReject(true)} style={btnStyle('ghost')}>
+                  <button data-testid={`step-${step.step_number}-request-changes`} onClick={() => setShowReject(true)} style={btnStyle('ghost')}>
                     Request changes
                   </button>
                 </div>
@@ -835,6 +836,7 @@ function ChatSidebar({
         {([1, 2, 3, 4, 5] as const).map((n) => (
           <button
             key={n}
+            data-testid={`chat-tab-${n}`}
             onClick={() => onTabChange(n)}
             style={{
               flex: 1, padding: '10px 4px', border: 'none',
@@ -880,6 +882,7 @@ function ChatSidebar({
         display: 'flex', gap: 8, alignItems: 'flex-end', flexShrink: 0,
       }}>
         <textarea
+          data-testid="chat-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -895,6 +898,7 @@ function ChatSidebar({
           }}
         />
         <button
+          data-testid="chat-send"
           onClick={handleSend}
           disabled={!input.trim() || streaming}
           style={{
@@ -975,17 +979,24 @@ const inputStyle: React.CSSProperties = {
 export default function FeatureWorkflowScreen() {
   const { id: projectId, featureId } = useParams<{ id: string; featureId: string }>();
   const navigate = useNavigate();
-  const session  = useSession();
 
-  const [feature,     setFeature]     = useState<Feature | null>(null);
-  const [steps,       setSteps]       = useState<FeatureStep[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState('');
-  const [openStep,    setOpenStep]    = useState<number | null>(null);
-  const [chatTab,     setChatTab]     = useState<number>(1);
-  const [toastMsg,    setToastMsg]    = useState('');
+  const [feature,      setFeature]      = useState<Feature | null>(null);
+  const [steps,        setSteps]        = useState<FeatureStep[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState('');
+  const [openStep,     setOpenStep]     = useState<number | null>(null);
+  const [chatTab,      setChatTab]      = useState<number>(1);
+  const [toastMsg,     setToastMsg]     = useState('');
+  const [sessionToken, setSessionToken] = useState('');
+  const [userId,       setUserId]       = useState('');
 
-  const sessionToken = session?.access_token ?? '';
+  // ── Load session token + user ID ──────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSessionToken(session?.access_token ?? '');
+      setUserId(session?.user?.id ?? '');
+    });
+  }, []);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -1024,7 +1035,7 @@ export default function FeatureWorkflowScreen() {
   // ── Step actions ─────────────────────────────────────────────────────────
   async function handleApprove(stepId: string) {
     try {
-      await approveStep(stepId, session?.user?.id ?? '');
+      await approveStep(stepId, userId);
       toast('Step approved');
       await load();
     } catch (err) {

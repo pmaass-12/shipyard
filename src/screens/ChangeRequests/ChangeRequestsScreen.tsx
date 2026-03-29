@@ -236,6 +236,7 @@ function AcceptModal({
             Cancel
           </button>
           <button
+            data-testid="accept-modal-confirm"
             onClick={handleConfirm}
             disabled={loading || (mode === 'create' ? !featureName.trim() : !selectedFeatureId)}
             style={{
@@ -257,9 +258,11 @@ function AcceptModal({
 function CrCard({
   cr,
   onStatusChange,
+  'data-testid': testId,
 }: {
   cr:             ChangeRequestSummary;
   onStatusChange: (id: string, status: ChangeRequestStatus, featureId?: string) => void;
+  'data-testid'?: string;
 }) {
   const [expanded, setExpanded]         = useState(false);
   const [detail, setDetail]             = useState<{ cr: ChangeRequest; annotations: CrAnnotation[] } | null>(null);
@@ -299,13 +302,17 @@ function CrCard({
 
   return (
     <>
-      <div style={{
-        border: '1px solid var(--color-border)', borderRadius: 10,
-        backgroundColor: 'var(--color-surface)', overflow: 'hidden',
-        marginBottom: 12,
-      }}>
+      <div
+        data-testid={testId}
+        style={{
+          border: '1px solid var(--color-border)', borderRadius: 10,
+          backgroundColor: 'var(--color-surface)', overflow: 'hidden',
+          marginBottom: 12,
+        }}
+      >
         {/* Collapsed card header */}
         <div
+          data-testid={testId ? `${testId}-expand` : undefined}
           onClick={handleExpand}
           style={{ display: 'flex', gap: 16, padding: 16, cursor: 'pointer' }}
         >
@@ -408,6 +415,7 @@ function CrCard({
                   <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button
+                        data-testid="cr-accept-btn"
                         onClick={() => setShowAcceptModal(true)}
                         style={{
                           padding: '8px 16px', borderRadius: 6, border: 'none',
@@ -418,6 +426,7 @@ function CrCard({
                         Accept →
                       </button>
                       <button
+                        data-testid="cr-reject-btn"
                         onClick={() => setShowRejectInput((p) => !p)}
                         style={{
                           padding: '8px 16px', borderRadius: 6,
@@ -521,6 +530,7 @@ function EmptyState({ deployUrl }: { deployUrl: string | null }) {
       </p>
       {testLink && (
         <button
+          data-testid="cr-test-link-copy"
           onClick={handleCopy}
           style={{
             padding: '10px 20px', borderRadius: 8,
@@ -621,6 +631,7 @@ export default function ChangeRequestsScreen() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
+              data-testid={`cr-filter-${tab.key}`}
               onClick={() => setActiveTab(tab.key)}
               style={{
                 padding: '6px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
@@ -638,6 +649,7 @@ export default function ChangeRequestsScreen() {
         {/* Screen dropdown */}
         {screenOptions.length > 0 && (
           <select
+            data-testid="cr-screen-filter"
             value={screenFilter}
             onChange={(e) => setScreenFilter(e.target.value)}
             style={{
@@ -662,7 +674,7 @@ export default function ChangeRequestsScreen() {
       ) : (
         <div>
           {filtered.map((cr) => (
-            <CrCard key={cr.id} cr={cr} onStatusChange={handleStatusChange} />
+            <CrCard key={cr.id} data-testid={`cr-card-${cr.id}`} cr={cr} onStatusChange={handleStatusChange} />
           ))}
         </div>
       )}

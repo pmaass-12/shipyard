@@ -61,6 +61,7 @@ function PhaseBadge({
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <button
+        data-testid="phase-badge-toggle"
         onClick={() => next && setOpen((p) => !p)}
         style={{
           padding: '4px 12px', borderRadius: 20, border: 'none',
@@ -82,6 +83,7 @@ function PhaseBadge({
             Advance to next phase?
           </p>
           <button
+            data-testid="phase-badge-advance"
             onClick={handleAdvance}
             disabled={acting}
             style={{
@@ -178,6 +180,7 @@ function NavCard({
     <Link
       to={locked ? '#' : card.href(project.id)}
       onClick={(e) => locked && e.preventDefault()}
+      data-testid={`nav-card-${card.id}`}
       style={{
         display: 'flex', flexDirection: 'column', padding: 16,
         border: '1px solid var(--color-border)', borderRadius: 10,
@@ -328,6 +331,7 @@ function SetupChecklist({
                 {step.status !== 'pending' && step.status !== 'done' && (
                   <Link
                     to={step.ctaHref(project.id)}
+                    data-testid={`setup-step-${step.number}-cta`}
                     style={{
                       display: 'inline-block', marginTop: 8, fontSize: 13,
                       color: 'var(--color-accent)', textDecoration: 'none', fontWeight: 600,
@@ -510,6 +514,7 @@ export default function ProjectHubScreen() {
       {project.phase === 'beta' && (
         <Link
           to={`/projects/${projectId}/push`}
+          data-testid="push-to-production-btn"
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             width: '100%', padding: '16px 24px', borderRadius: 12,
