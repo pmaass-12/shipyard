@@ -12,6 +12,7 @@ Each build moves left to right: Engineer → QA → Done.
 | 006-fix | Phase/Launch rename | ✓ 2026-03-29 | — | — |
 | 022 | Human Tasks Global View | ✓ 2026-03-29 ⚠ run migration | — | — |
 | 024-fix | Inline project delete | ✓ 2026-03-29 | — | — |
+| 025-fix | Forgot Password / Reset | ✓ 2026-03-29 | — | — |
 | 033 | Feature Workflow Redesign | ⛔ Blocked — run migrations 033+039 first | — | — |
 | 040 | Named Team + PM Chat + Briefing | ⛔ Blocked — contracts + migrations not delivered | — | — |
 | 041 | Import Existing Website | ⛔ Blocked — contracts + migrations not delivered | — | — |
@@ -33,6 +34,10 @@ Each build moves left to right: Engineer → QA → Done.
 - Fixed P1-016a (useSession → supabase.auth.getSession)
 - Added data-testid to ChangeRequestsScreen, ProjectHubScreen, ScreensScreen, FeatureWorkflowScreen (round 1)
 - Committed bc5878d + a634fed (push pending, requires local terminal)
+
+### Session 7 — 025-fix, migrations (2026-03-29)
+- **025-fix**: Added forgot password flow to LoginScreen (new `'forgot'` mode, `Forgot password?` link in sign-in, calls `resetPasswordForEmail`). Created `ResetPasswordScreen` at `/reset-password` (public route) — handles Supabase password reset callback, calls `updatePassword`, redirects to `/login` on success. Added `resetPasswordForEmail` and `updatePassword` to `lib/auth.ts`. No migration needed.
+- **Migrations**: Running 013→016→022→033→039 in Supabase SQL Editor. 013 ✓, 014 ✓ (split), 016 ✓ (split), 022 ✓. Block 4 (033) in progress.
 
 ### Session 6 — 006-fix, 022, 024-fix (2026-03-29)
 - **006-fix**: Updated display-layer strings — data-testids on MaturityBadge (maturity→phase), PushToProductionModal (push-to-production-modal→launch-modal), ProjectHubScreen (push-to-production-btn→launch-btn). Warning text replaced with informational note. Modal subtitle updated.

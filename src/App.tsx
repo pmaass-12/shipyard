@@ -5,6 +5,7 @@ import FeedbackWidget            from '@/components/FeedbackWidget';
 import ImpersonationBanner, { ImpersonationProvider } from '@/components/ImpersonationBanner';
 import TestModeBanner            from '@/components/TestModeBanner';    // Build 007
 import LoginScreen               from '@/screens/Login/LoginScreen';
+import ResetPasswordScreen       from '@/screens/Login/ResetPasswordScreen';
 import ProjectsListScreen        from '@/screens/Projects/ProjectsListScreen';
 import AdminScreen               from '@/screens/Admin/AdminScreen';
 import SetupScreen               from '@/screens/Setup/SetupScreen';
@@ -30,6 +31,7 @@ export default function App() {
 
         <Routes>
           <Route path="/login" element={<LoginScreen />} />
+          <Route path="/reset-password" element={<ResetPasswordScreen />} />
 
           {/* All routes below require an active Supabase session */}
           <Route element={<AuthGuard />}>
