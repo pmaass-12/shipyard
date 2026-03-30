@@ -114,6 +114,7 @@ export async function updateProject(
   if (patch.color       !== undefined) updates['color']       = patch.color;
   if (patch.description !== undefined) updates['description'] = patch.description;
   if (patch.status      !== undefined) updates['status']      = patch.status;
+  if (patch.phase       !== undefined) updates['phase']       = patch.phase;   // Build 006-fix
   if (patch.repo_url    !== undefined) updates['repo_url']    = patch.repo_url;
   if (patch.budget_usd  !== undefined) updates['budget_usd']  = patch.budget_usd;
   if (patch.tech_stack  !== undefined) updates['tech_stack']  = patch.tech_stack;
@@ -137,6 +138,60 @@ export const resumeProject = (id: string) => updateProject(id, { status: 'active
 export const shipProject   = (id: string) => updateProject(id, { status: 'shipped' });
 
 // ── Build 006: Project phase ──────────────────────────────────────────────
+
+/**
+ * Launch the product: advances phase to 'live', stamps launched_at,
+ * triggers configured launch actions (non-blocking Edge Function).
+ * Build 006-fix: replaces "Push to Production" label everywhere.
+ */
+export async function pushToProduction(
+  input: { project_id: string }
+): Promise<Project> {
+  const { data, error } = await supabase
+    .from('projects')
+    .update({
+      phase:                   'live' as ProjectPhase,
+      pushed_to_production_at: new Date().toISOString(),
+    })
+    .eq('id', input.project_id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Kick off any post-launch Edge Functions non-blocking.
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!session?.access_token) return;
+
+    // on-launch hook (Build 006)
+    fetch('/api/on-launch', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        Authorization:   `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ project_id: input.project_id }),
+    }).catch(() => { /* non-critical */ });
+
+    // Build 043: write system memory fact for the deploy event
+    const launchDate = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    fetch('/functions/v1/write-system-memory-fact', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        Authorization:   `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        project_id: input.project_id,
+        title:      'Project launched to Live',
+        body:       `Project was pushed to production (Live) on ${launchDate}.`,
+        category:   'decision',
+      }),
+    }).catch(() => { /* non-critical */ });
+  });
+
+  return data as Project;
+}
 
 /** Fetch the full project_summary view row for a single project. */
 export async function getProjectSummary(projectId: string): Promise<ProjectSummary> {

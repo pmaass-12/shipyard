@@ -1,23 +1,23 @@
 /**
- * Feature Workflow API — Build 016
+ * Feature Workflow API — Build 033
  *
- * 5-step linear feature workflow: Design → Schema → Code → Deploy → QA.
- * Persistent Claude chat sidebar per step.
+ * 6-step pipeline: Design → Schema → Code → Preview → QA → Live.
+ * Chat is Design-step only. Single approval gate: Design approval
+ * unlocks the remaining steps. Output stored as TEXT per step.
  */
 
 import { supabase } from '@/lib/supabase';
 import type {
   Feature,
   FeatureStep,
-  FeatureIteration,
   FeatureChatMessage,
+  FeatureStepName,
   HumanTask,
-  FeatureStepStatus,
 } from '@/types/db';
 
 // ── Queries ────────────────────────────────────────────────────────────────
 
-/** Load feature row + all 5 steps in parallel */
+/** Load feature row + all 6 steps in parallel */
 export async function getFeatureWithSteps(featureId: string): Promise<{
   feature: Feature;
   steps:   FeatureStep[];
@@ -37,7 +37,15 @@ export async function getFeatureWithSteps(featureId: string): Promise<{
   return { feature: featureRes.data as Feature, steps: stepsRes.data as FeatureStep[] };
 }
 
-/** Pending human tasks for the active step amber banner */
+/** Steps keyed by step_name for convenient tab lookup */
+export function indexStepsByName(steps: FeatureStep[]): Record<FeatureStepName, FeatureStep | undefined> {
+  return steps.reduce((acc, step) => {
+    acc[step.step_name] = step;
+    return acc;
+  }, {} as Record<FeatureStepName, FeatureStep | undefined>);
+}
+
+/** Pending human tasks for a step — shown in amber banner */
 export async function getPendingTasksForStep(featureStepId: string): Promise<HumanTask[]> {
   const { data, error } = await supabase
     .from('human_tasks')
@@ -50,21 +58,10 @@ export async function getPendingTasksForStep(featureStepId: string): Promise<Hum
   return (data ?? []) as HumanTask[];
 }
 
-/** Iteration history for a step (collapsed by default in UI) */
-export async function getStepIterations(featureStepId: string): Promise<FeatureIteration[]> {
-  const { data, error } = await supabase
-    .from('feature_iterations')
-    .select('*')
-    .eq('feature_step_id', featureStepId)
-    .order('iteration_number');
-  if (error) throw error;
-  return (data ?? []) as FeatureIteration[];
-}
-
-/** Chat thread for one step tab */
+/** Chat thread — Design step only (step_number=1), but accepts any step for flexibility */
 export async function getChatThread(
   featureId:  string,
-  stepNumber: 1 | 2 | 3 | 4 | 5
+  stepNumber: 1 | 2 | 3 | 4 | 5 | 6 = 1
 ): Promise<FeatureChatMessage[]> {
   const { data, error } = await supabase
     .from('feature_chat_messages')
@@ -78,74 +75,75 @@ export async function getChatThread(
 
 // ── Mutations ──────────────────────────────────────────────────────────────
 
-/** Approve a step — DB trigger handles: approve_at, activating next step, workflow_step sync, task dismissal */
+/**
+ * Approve the Design step — single gate that unlocks the full pipeline.
+ * DB trigger handles: approved_at, advancing pipeline_step on the feature,
+ * unlocking step 2 (schema), and dismissing any pending design tasks.
+ */
+export async function approveDesign(stepId: string, approvedBy: string): Promise<void> {
+  const { error } = await supabase
+    .from('feature_steps')
+    .update({
+      status:      'approved',
+      approved_by: approvedBy,
+      approved_at: new Date().toISOString(),
+    })
+    .eq('id', stepId);
+  if (error) throw error;
+}
+
+/**
+ * Save the text output for a step (spec, SQL, generated code, QA notes, etc.)
+ * Can be called at any time during in_progress; does NOT change step status.
+ */
+export async function updateStepOutput(stepId: string, output: string): Promise<void> {
+  const { error } = await supabase
+    .from('feature_steps')
+    .update({ output })
+    .eq('id', stepId);
+  if (error) throw error;
+}
+
+/**
+ * Mark a step in_progress (e.g. when user starts editing output).
+ * Only transitions from not_started → in_progress; locked steps are immutable.
+ */
+export async function startStep(stepId: string): Promise<void> {
+  const { error } = await supabase
+    .from('feature_steps')
+    .update({ status: 'in_progress' })
+    .eq('id', stepId)
+    .eq('status', 'not_started');   // guard: only move forward from not_started
+  if (error) throw error;
+}
+
+/**
+ * Approve any non-design step (Schema, Code, Preview, QA, Live).
+ * These don't unlock the next step automatically — pipeline is manual after Design.
+ */
 export async function approveStep(stepId: string, approvedBy: string): Promise<void> {
   const { error } = await supabase
     .from('feature_steps')
     .update({
       status:      'approved',
       approved_by: approvedBy,
-      approved_at: new Date().toISOString(), // also set by trigger for optimistic UI
+      approved_at: new Date().toISOString(),
     })
     .eq('id', stepId);
   if (error) throw error;
 }
 
-/** Request changes — marks step as changes_requested + inserts iteration row */
-export async function requestChanges(
-  stepId:     string,
-  changeNote: string
-): Promise<FeatureIteration> {
-  // a) Update step status
-  const { error: stepErr } = await supabase
-    .from('feature_steps')
-    .update({ status: 'changes_requested' })
-    .eq('id', stepId);
-  if (stepErr) throw stepErr;
-
-  // b) Get next iteration number
-  const { count } = await supabase
-    .from('feature_iterations')
-    .select('id', { count: 'exact', head: true })
-    .eq('feature_step_id', stepId);
-
-  const nextNumber = (count ?? 0) + 1;
-
-  // c) Insert iteration
-  const { data, error: iterErr } = await supabase
-    .from('feature_iterations')
-    .insert({
-      feature_step_id:  stepId,
-      iteration_number: nextNumber,
-      change_note:      changeNote,
-    })
-    .select('*')
-    .single();
-  if (iterErr) throw iterErr;
-
-  return data as FeatureIteration;
-}
-
-/** Edit step content directly (e.g. fixing the spec or SQL inline) */
-export async function updateStepContent(
-  stepId:  string,
-  content: Record<string, unknown>
-): Promise<void> {
-  const { error } = await supabase
-    .from('feature_steps')
-    .update({ content })
-    .eq('id', stepId);
-  if (error) throw error;
-}
-
-/** Insert a user chat message then stream Claude's response */
+/**
+ * Send a user message and stream Claude's response.
+ * Only valid for Design step (step_number=1) — chat is Design-only per Build 033.
+ */
 export async function sendChatMessage(
-  featureId:  string,
-  stepNumber: 1 | 2 | 3 | 4 | 5,
-  content:    string,
+  featureId:    string,
+  stepNumber:   1 | 2 | 3 | 4 | 5 | 6,
+  content:      string,
   sessionToken: string,
-  onChunk:    (chunk: string) => void,
-  onDone:     (fullResponse: string) => void
+  onChunk:      (chunk: string) => void,
+  onDone:       (fullResponse: string) => void
 ): Promise<void> {
   // Insert user message
   const { error: insertErr } = await supabase
@@ -182,32 +180,67 @@ export async function sendChatMessage(
   onDone(full);
 }
 
+// ── Build 043: Cancel feature + system memory write ─────────────────────────────────
+
+/**
+ * Cancel a feature — sets lifecycle to 'cancelled' and writes a system
+ * memory fact so Morgan can answer "why did we cancel X?" in future sessions.
+ *
+ * The memory INSERT uses the service-role via Edge Function to bypass RLS
+ * (client cannot write source='system' facts directly).
+ */
+export async function cancelFeature(
+  featureId:         string,
+  projectId:         string,
+  featureName:       string,
+  cancellationReason?: string
+): Promise<void> {
+  const { error: updateErr } = await supabase
+    .from('features')
+    .update({ lifecycle: 'cancelled' })
+    .eq('id', featureId);
+
+  if (updateErr) throw updateErr;
+
+  // Write system memory fact via Edge Function (service role — source='system')
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    const reason = cancellationReason?.trim() || 'No reason recorded.';
+    fetch('/functions/v1/write-system-memory-fact', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        project_id: projectId,
+        title:      `Feature “${featureName}” cancelled`,
+        body:       `Feature “${featureName}” was cancelled. Reason: ${reason}`,
+        category:   'cancellation',
+        feature_id: featureId,
+      }),
+    }).catch(() => { /* non-critical — memory write failure should not block UI */ });
+  }
+}
+
 // ── Step render state helper ───────────────────────────────────────────────
 
-export function getStepRenderState(step: FeatureStep): 'approved' | 'active' | 'locked' {
-  if (step.status === 'approved') return 'approved';
-  if (step.status === 'active' || step.status === 'changes_requested') return 'active';
-  return 'locked';
+/** Maps DB status to the UI render mode for a step tab */
+export function getStepRenderState(
+  step: FeatureStep
+): 'approved' | 'active' | 'locked' | 'not_started' {
+  if (step.status === 'approved')    return 'approved';
+  if (step.status === 'in_progress') return 'active';
+  if (step.status === 'locked')      return 'locked';
+  return 'not_started';
 }
 
-// ── Type guards for step content ───────────────────────────────────────────
-
-export function isDesignContent(content: unknown): content is { spec_text: string } {
-  return typeof content === 'object' && content !== null && 'spec_text' in content;
+/** True when the Design step is approved (gates the rest of the pipeline) */
+export function isDesignApproved(steps: FeatureStep[]): boolean {
+  return steps.find(s => s.step_name === 'design')?.status === 'approved';
 }
 
-export function isSchemaContent(content: unknown): content is { sql: string; migration_run: boolean } {
-  return typeof content === 'object' && content !== null && 'sql' in content;
-}
-
-export function isCodeContent(content: unknown): content is { files: Array<{ name: string; content: string; line_count: number }> } {
-  return typeof content === 'object' && content !== null && 'files' in content;
-}
-
-export function isDeployContent(content: unknown): content is { github_pr_url: string | null; netlify_deploy_url: string | null } {
-  return typeof content === 'object' && content !== null && 'github_pr_url' in content;
-}
-
-export function isQaContent(content: unknown): content is { test_notes: string | null; sign_off_by: string | null } {
-  return typeof content === 'object' && content !== null && 'test_notes' in content;
+/** True when all 6 steps are approved (feature is fully live) */
+export function isPipelineComplete(steps: FeatureStep[]): boolean {
+  return steps.length === 6 && steps.every(s => s.status === 'approved');
 }

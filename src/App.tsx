@@ -16,6 +16,7 @@ import ChangeRequestsScreen      from '@/screens/ChangeRequests/ChangeRequestsSc
 import ScreensScreen             from '@/screens/Screens/ScreensScreen';         // Build 015
 import FeatureWorkflowScreen     from '@/screens/Features/FeatureWorkflowScreen'; // Build 016
 import HumanTasksScreen          from '@/screens/HumanTasks/HumanTasksScreen';    // Build 022
+import ImportFlowScreen          from '@/screens/Import/ImportFlowScreen';          // Build 041
 
 // ── App ──────────────────────────────────────────────────────────────────
 export default function App() {
@@ -54,6 +55,9 @@ export default function App() {
 
             {/* Build 022: Human Tasks Global View */}
             <Route path="/tasks" element={<HumanTasksScreen />} />
+
+            {/* Build 041: Import Existing Website */}
+            <Route path="/projects/:id/import" element={<ImportFlowScreen />} />
 
             {/* Build 009: What's New screen */}
             <Route path="/projects/:id/whats-new" element={<WhatsNewScreen />} />

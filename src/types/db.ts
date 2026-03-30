@@ -223,21 +223,27 @@ export interface ReleaseNoteWithItems extends ReleaseNote {
 
 // Build 016: new columns on features table
 export type FeaturePriority   = 'p0' | 'p1' | 'p2' | 'p3';
-export type FeatureLifecycle  = 'in_progress' | 'shipped' | 'paused';
+export type FeatureLifecycle  = 'in_progress' | 'shipped' | 'paused' | 'live';
 
 export interface Feature {
   id:              string;
-  project_id:      string;           // Build 016: direct FK
+  project_id:      string;           // Build 016: direct FK (via screens join in RLS)
   screen_id:       string | null;    // nullable — features can be unlinked from screens
   name:            string;
   description:     string | null;
   status:          FeatureStatus;
   complexity:      FeatureComplexity;
   current_version: number;
-  maturity:        FeatureMaturity;  // Build 006 — defaults from project phase at creation
+  phase:           FeatureMaturity;  // Build 033: renamed from maturity
   priority:        FeaturePriority;  // Build 016
-  workflow_step:   number;           // Build 016: 1–5, denormalized current step
+  pipeline_step:   number;           // Build 033: 1–6, denormalized current step
   lifecycle:       FeatureLifecycle; // Build 016: overall builder-visible status
+  // Build 033: preview / release tracking
+  preview_url:         string | null;
+  preview_branch:      string | null;
+  preview_deployed_at: string | null;
+  released_at:         string | null;
+  auto_release:        boolean;
   // Widget/CR-origin columns (null for manually-created features):
   source:          'manual' | 'widget' | 'change_request';
   screenshot_url:  string | null;
@@ -248,14 +254,14 @@ export interface Feature {
 
 // Lightweight row used in Screens detail Features tab
 export interface ScreenFeatureRow {
-  id:           string;
-  name:         string;
-  maturity:     FeatureMaturity;
-  status:       FeatureStatus;
-  workflow_step: number;
-  complexity:   FeatureComplexity;
-  priority:     FeaturePriority;
-  created_at:   string;
+  id:            string;
+  name:          string;
+  phase:         FeatureMaturity;  // Build 033: renamed from maturity
+  status:        FeatureStatus;
+  pipeline_step: number;           // Build 033: renamed from workflow_step
+  complexity:    FeatureComplexity;
+  priority:      FeaturePriority;
+  created_at:    string;
 }
 
 export type NewFeatureInput = {
@@ -722,58 +728,358 @@ export interface ScreenSummary {
   pending_cr_count: number;
 }
 
-// ── Build 016: Feature Workflow ───────────────────────────────────────────
+// ── Build 033: Feature Workflow Redesign ─────────────────────────────────
 
-export type FeatureStepStatus = 'pending' | 'active' | 'approved' | 'changes_requested';
-
-// Step content shapes — vary by step number
-export interface StepFile {
-  name:       string;  // e.g. 'FeatureScreen.tsx'
-  content:    string;  // full file content
-  line_count: number;
-}
-
-export interface StepContent {
-  1: { spec_text: string };
-  2: { sql: string; migration_run: boolean };
-  3: { files: StepFile[] };
-  4: { github_pr_url: string | null; netlify_deploy_url: string | null };
-  5: { test_notes: string | null; sign_off_by: string | null };
-}
+export type FeatureStepStatus = 'not_started' | 'in_progress' | 'approved' | 'locked';
+export type FeatureStepName   = 'design' | 'schema' | 'code' | 'preview' | 'qa' | 'live';
 
 export interface FeatureStep {
   id:          string;
   feature_id:  string;
-  step_number: 1 | 2 | 3 | 4 | 5;
+  step_number: 1 | 2 | 3 | 4 | 5 | 6;
+  step_name:   FeatureStepName;
   status:      FeatureStepStatus;
-  content:     StepContent[keyof StepContent] | null;
+  output:      string | null;    // TEXT: spec, SQL, code, or notes depending on step
   approved_at: string | null;
-  approved_by: string | null;
+  approved_by: string | null;    // UUID of approving user
   created_at:  string;
   updated_at:  string;
 }
 
-export interface FeatureIteration {
-  id:               string;
-  feature_step_id:  string;
-  iteration_number: number;
-  change_note:      string;
-  created_at:       string;
-}
-
 export interface FeatureChatMessage {
-  id:          string;
-  feature_id:  string;
-  step_number: 1 | 2 | 3 | 4 | 5;
-  role:        'user' | 'assistant';
-  content:     string;
-  created_at:  string;
+  id:             string;
+  feature_id:     string;
+  step_number:    1 | 2 | 3 | 4 | 5 | 6;
+  role:           'user' | 'assistant' | 'system';
+  content:        string;
+  model:          string | null;
+  input_tokens:   number | null;
+  output_tokens:  number | null;
+  created_at:     string;
 }
 
 export const STEP_LABELS: Record<number, string> = {
   1: 'Design',
   2: 'Schema',
   3: 'Code',
-  4: 'Deploy',
+  4: 'Preview',
   5: 'QA',
+  6: 'Live',
 };
+
+// ── Build 040: Named Team, PM Chat & Daily Briefing ───────────────────────────
+
+export type PmChatRole = 'user' | 'assistant';
+
+export interface PmChatMessage {
+  id:             string;
+  project_id:     string;
+  thread_id:      string;         // UUID; groups messages into a conversation
+  role:           PmChatRole;
+  content:        string;
+  // Build 043: compaction columns (added via ALTER TABLE)
+  compacted:      boolean;        // true = archived into a compacted_threads summary
+  compacted_into: string | null;  // FK → compacted_threads.id
+  created_at:     string;
+}
+
+export interface PmChatThread {
+  thread_id:            string;
+  last_message_at:      string;
+  last_message_preview: string;   // first 80 chars of last message content
+  message_count:        number;
+}
+
+export interface BriefingContextSnapshot {
+  project_name:              string;
+  project_phase:             string;
+  feature_count:             number;
+  open_bug_count:            number;
+  open_change_count:         number;
+  pending_human_task_count:  number;
+  last_deploy_at:            string | null;
+  captured_at:               string;
+}
+
+export interface ProjectBriefing {
+  id:               string;
+  project_id:       string;
+  content:          string;                          // Morgan's markdown briefing text
+  generated_at:     string;
+  context_snapshot: BriefingContextSnapshot | null;
+}
+
+export const STEP_NAMES: Record<number, FeatureStepName> = {
+  1: 'design',
+  2: 'schema',
+  3: 'code',
+  4: 'preview',
+  5: 'qa',
+  6: 'live',
+};
+
+// ── Build 042: Project Health & Full Regression ───────────────────────────────
+
+// ── StepTestResult (from Build 039, extended in 042 with is_flaky) ────────
+export interface StepTestDetails {
+  tests: Array<{
+    name:        string;
+    status:      'passed' | 'failed' | 'skipped';
+    duration_ms: number;
+    error?:      string;
+  }>;
+}
+
+export interface StepTestResult {
+  id:              string;
+  feature_id:      string;
+  step_id:         string;
+  run_at:          string;
+  pass_count:      number;
+  fail_count:      number;
+  duration_ms:     number | null;
+  error_output:    string | null;
+  test_details:    StepTestDetails | null;
+  override_reason: string | null;
+  created_by:      string;
+  // Added in migration 042
+  is_flaky:        boolean;
+}
+
+// ── Regression Runs ───────────────────────────────────────────────────────
+export interface RegressionTestResult {
+  test_name:  string;
+  feature_id: string;
+  status:     'passed' | 'failed' | 'skipped';
+  assertion:  string | null;
+  error:      string | null;
+  duration_ms: number;
+  file:       string;
+}
+
+export interface RegressionResults {
+  total:   number;
+  passed:  number;
+  failed:  number;
+  skipped: number;
+  tests:   RegressionTestResult[];
+}
+
+export type RegressionTriggeredBy = 'deploy' | 'manual' | 'scheduled';
+export type RegressionStatus      = 'running' | 'passed' | 'failed' | 'error';
+
+export interface RegressionRun {
+  id:             string;
+  project_id:     string;
+  triggered_by:   RegressionTriggeredBy;
+  feature_id:     string | null;
+  status:         RegressionStatus;
+  pass_count:     number;
+  fail_count:     number;
+  duration_ms:    number | null;
+  production_url: string | null;
+  results:        RegressionResults | null;
+  started_at:     string;
+  completed_at:   string | null;
+}
+
+// ── Project Health Scores ─────────────────────────────────────────────────
+export type HealthIssueDimension =
+  | 'test_coverage'
+  | 'pipeline_integrity'
+  | 'schema_health'
+  | 'content_completeness'
+  | 'dependency_connectivity';
+
+export type HealthIssueSeverity  = 'p1' | 'p2';
+
+export type HealthIssueEntityType =
+  | 'feature'
+  | 'screen'
+  | 'change'
+  | 'human_task'
+  | 'schema_table'
+  | 'bug';
+
+export interface HealthIssue {
+  dimension:   HealthIssueDimension;
+  severity:    HealthIssueSeverity;
+  description: string;
+  entity_type: HealthIssueEntityType;
+  entity_id:   string | null;
+  deduction:   number;
+}
+
+export interface ProjectHealthScore {
+  id:                   string;
+  project_id:           string;
+  score:                number;   // 0–100
+  test_coverage_score:  number;   // 0–30
+  pipeline_score:       number;   // 0–25
+  schema_score:         number;   // 0–20
+  content_score:        number;   // 0–15
+  dependency_score:     number;   // 0–10
+  issues:               HealthIssue[];
+  computed_at:          string;
+}
+
+// The latest_project_health_scores VIEW returns the same shape
+export type LatestProjectHealthScore = ProjectHealthScore;
+
+export interface ProjectHealthReport {
+  id:           string;
+  project_id:   string;
+  score_id:     string;
+  content:      string;   // Morgan's markdown health report
+  generated_at: string;
+}
+
+// ── Score helpers ─────────────────────────────────────────────────────────
+export type HealthScoreColor = 'green' | 'amber' | 'red';
+
+export function deriveHealthScoreColor(score: number): HealthScoreColor {
+  if (score >= 90) return 'green';
+  if (score >= 70) return 'amber';
+  return 'red';
+}
+
+export const HEALTH_DIMENSION_MAX: Record<HealthIssueDimension, number> = {
+  test_coverage:           30,
+  pipeline_integrity:      25,
+  schema_health:           20,
+  content_completeness:    15,
+  dependency_connectivity: 10,
+};
+
+export const HEALTH_DIMENSION_LABEL: Record<HealthIssueDimension, string> = {
+  test_coverage:           'Test Coverage',
+  pipeline_integrity:      'Pipeline Integrity',
+  schema_health:           'Schema Health',
+  content_completeness:    'Content Completeness',
+  dependency_connectivity: 'Dependency & Connectivity',
+};
+
+export function groupIssuesByDimension(
+  issues: HealthIssue[]
+): Partial<Record<HealthIssueDimension, HealthIssue[]>> {
+  return issues.reduce((acc, issue) => {
+    if (!acc[issue.dimension]) acc[issue.dimension] = [];
+    acc[issue.dimension]!.push(issue);
+    return acc;
+  }, {} as Partial<Record<HealthIssueDimension, HealthIssue[]>>);
+}
+
+// ── Build 043: Project Memory & General Chat ─────────────────────────────────
+
+export type MemoryFactCategory =
+  | 'decision'
+  | 'pattern'
+  | 'preference'
+  | 'constraint'
+  | 'cancellation'
+  | 'note';
+
+export type MemoryFactSource = 'user' | 'morgan' | 'system';
+
+export interface ProjectMemoryFact {
+  id:         string;
+  project_id: string;
+  title:      string;
+  body:       string;
+  category:   MemoryFactCategory;
+  source:     MemoryFactSource;
+  feature_id: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+}
+
+export type NewMemoryFactInput = {
+  title:      string;
+  body:       string;
+  category:   MemoryFactCategory;
+  source?:    MemoryFactSource;   // defaults to 'user'
+  feature_id?: string | null;
+};
+
+export type UpdateMemoryFactInput = Partial<Pick<ProjectMemoryFact,
+  'title' | 'body' | 'category'
+>>;
+
+export interface CompactedThread {
+  id:                string;
+  project_id:        string;
+  thread_id:         string;
+  summary:           string;
+  message_count:     number;
+  oldest_message_at: string;
+  newest_message_at: string;
+  created_at:        string;
+}
+
+/** save_suggestion returned by generate-pm-chat-response when Morgan flags a durable fact */
+export interface MorganSaveSuggestion {
+  title:    string;
+  body:     string;
+  category: MemoryFactCategory;
+}
+
+// ── Build 041: Import Existing Website ───────────────────────────────────────
+
+export type ImportJobStatus =
+  | 'pending'
+  | 'crawling'
+  | 'analyzing'
+  | 'review'
+  | 'complete'
+  | 'failed';
+
+export type ImportItemType   = 'screen' | 'feature' | 'table';
+export type ImportItemStatus = 'pending' | 'approved' | 'dismissed';
+export type ImportConfidence = 'high' | 'medium' | 'low';
+
+export interface ImportJob {
+  id:             string;
+  project_id:     string;
+  source_url:     string;
+  github_url:     string | null;
+  status:         ImportJobStatus;
+  screens_found:  number;
+  error_message:  string | null;
+  created_at:     string;
+  completed_at:   string | null;
+}
+
+// raw_data shapes per type
+export interface ImportScreenData {
+  url:          string;
+  path:         string;
+  title:        string;
+  description:  string | null;
+  h1:           string | null;
+  screenshot_path: string | null;
+}
+
+export interface ImportFeatureData {
+  screen_paths:    string[];     // paths of screens grouped into this feature
+  inferred_name:   string;
+  confidence:      ImportConfidence;
+  description:     string;
+}
+
+export interface ImportTableData {
+  columns: Array<{ name: string; type: string; nullable: boolean }>;
+  is_system_table: boolean;
+}
+
+export interface ImportItem {
+  id:           string;
+  import_job_id: string;
+  type:         ImportItemType;
+  name:         string;
+  raw_data:     ImportScreenData | ImportFeatureData | ImportTableData;
+  confidence:   ImportConfidence | null;
+  status:       ImportItemStatus;
+  resulting_id: string | null;
+  created_at:   string;
+}

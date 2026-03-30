@@ -1,1002 +1,389 @@
 /**
- * Feature Workflow Screen — Build 016
+ * Feature Workflow Screen — Build 033
  *
- * Two-panel layout:
- *   Left  — 5-step vertical accordion (Design → Schema → Code → Deploy → QA)
- *   Right — Persistent Claude chat sidebar, one thread per step tab
+ * 6-tab pipeline: Design → Schema → Code → Preview → QA → Live
  *
- * Route: /projects/:id/features/:featureId
+ * Layout:
+ *   Top   — PipelineStrip (step bubbles + connector lines)
+ *   Below — Tab bar (6 labels)
+ *   Body  — Design tab: split chat|output; all other tabs: full-width output
+ *
+ * Approval gate: only Design can be approved here; that approval unlocks
+ * steps 2-6 (DB trigger sets them from 'locked' → 'not_started').
+ *
+ * Route: /projects/:projectId/features/:featureId
  */
 
 import {
   useState, useEffect, useRef, useCallback,
 } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  ArrowLeft, CheckCircle, Clock, Lock, Send,
+  AlertTriangle, Loader2, ChevronRight,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import {
   getFeatureWithSteps,
   getPendingTasksForStep,
-  getStepIterations,
   getChatThread,
+  approveDesign,
   approveStep,
-  requestChanges,
-  updateStepContent,
+  updateStepOutput,
+  startStep,
   sendChatMessage,
   getStepRenderState,
-  isDesignContent,
-  isSchemaContent,
-  isCodeContent,
-  isDeployContent,
-  isQaContent,
+  indexStepsByName,
+  isDesignApproved,
+  isPipelineComplete,
 } from '@/api/featureWorkflow';
 import type {
   Feature,
   FeatureStep,
-  FeatureIteration,
   FeatureChatMessage,
   HumanTask,
-  STEP_LABELS,
+  FeatureStepName,
 } from '@/types/db';
-import { STEP_LABELS as LABELS } from '@/types/db';
+import { STEP_LABELS, STEP_NAMES } from '@/types/db';
+import PipelineStrip from '@/components/PipelineStrip';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Colours
+// Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
-const STATUS_COLORS: Record<string, string> = {
-  pending:           '#636366',
-  active:            '#0a84ff',
-  approved:          '#30d158',
-  changes_requested: '#ff9f0a',
-};
 
-const PRIORITY_COLORS: Record<string, string> = {
-  p0: '#ff3b30',
-  p1: '#ff9f0a',
-  p2: '#0a84ff',
-  p3: '#636366',
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tiny helpers
-// ─────────────────────────────────────────────────────────────────────────────
-function StatusChip({ status }: { status: string }) {
-  const label: Record<string, string> = {
-    pending:           'Pending',
-    active:            'Active',
-    approved:          '✓ Approved',
-    changes_requested: 'Changes Requested',
+function StepStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    not_started: 'bg-gray-100 text-gray-500',
+    in_progress: 'bg-blue-50  text-blue-600',
+    approved:    'bg-emerald-50 text-emerald-700',
+    locked:      'bg-gray-50  text-gray-300',
+  };
+  const labels: Record<string, string> = {
+    not_started: 'Not started',
+    in_progress: 'In progress',
+    approved:    '✓ Approved',
+    locked:      'Locked',
   };
   return (
-    <span style={{
-      padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-      backgroundColor: STATUS_COLORS[status] + '22',
-      color:           STATUS_COLORS[status],
-      border:          `1px solid ${STATUS_COLORS[status]}44`,
-    }}>
-      {label[status] ?? status}
+    <span
+      data-testid="step-status-badge"
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${styles[status] ?? 'bg-gray-100 text-gray-500'}`}
+    >
+      {labels[status] ?? status}
     </span>
   );
 }
 
-function HumanTaskBanner({ tasks, onDismiss }: { tasks: HumanTask[]; onDismiss: (id: string) => void }) {
+function HumanTaskBanner({ tasks }: { tasks: HumanTask[] }) {
   if (!tasks.length) return null;
   return (
-    <div style={{
-      background: '#ff9f0a1a', border: '1px solid #ff9f0a44',
-      borderRadius: 8, padding: '10px 14px', marginBottom: 16,
-    }}>
-      <p style={{ fontSize: 12, fontWeight: 700, color: '#ff9f0a', marginBottom: 6 }}>
-        Action required
-      </p>
-      {tasks.map((t) => (
-        <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 12, color: 'var(--color-text)', flex: 1 }}>{t.title}</span>
-          <button
-            onClick={() => onDismiss(t.id)}
-            style={{
-              fontSize: 10, padding: '2px 8px', borderRadius: 4, border: 'none',
-              background: '#ff9f0a', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap',
-            }}
-          >
-            Mark done
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step panels (content rendering per step type)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function DesignPanel({
-  step,
-  onEdit,
-}: {
-  step: FeatureStep;
-  onEdit: (text: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft]     = useState('');
-  const content = isDesignContent(step.content) ? step.content : null;
-  const text    = content?.spec_text ?? '';
-
-  function startEdit() {
-    setDraft(text);
-    setEditing(true);
-  }
-
-  function save() {
-    onEdit(draft);
-    setEditing(false);
-  }
-
-  return (
-    <div>
-      {editing ? (
-        <div>
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={12}
-            style={{
-              width: '100%', resize: 'vertical', borderRadius: 6,
-              border: '1px solid var(--color-border)',
-              padding: '10px 12px', fontSize: 13, lineHeight: 1.6,
-              background: 'var(--color-bg)', color: 'var(--color-text)',
-              fontFamily: 'inherit',
-            }}
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button onClick={save} style={btnStyle('primary')}>Save</button>
-            <button onClick={() => setEditing(false)} style={btnStyle('ghost')}>Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          {text ? (
-            <pre style={{
-              whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13,
-              lineHeight: 1.7, color: 'var(--color-text)', margin: 0,
-              fontFamily: 'inherit',
-            }}>
-              {text}
-            </pre>
-          ) : (
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-              No spec written yet. Click Edit to add requirements.
-            </p>
-          )}
-          {step.status !== 'approved' && (
-            <button onClick={startEdit} style={{ ...btnStyle('ghost'), marginTop: 12 }}>
-              Edit spec
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SchemaPanel({
-  step,
-  onEdit,
-}: {
-  step: FeatureStep;
-  onEdit: (sql: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft]     = useState('');
-  const content = isSchemaContent(step.content) ? step.content : null;
-  const sql     = content?.sql ?? '';
-
-  function startEdit() {
-    setDraft(sql);
-    setEditing(true);
-  }
-
-  function save() {
-    onEdit(draft);
-    setEditing(false);
-  }
-
-  return (
-    <div>
-      {content?.migration_run && (
-        <div style={{
-          fontSize: 11, color: '#30d158', fontWeight: 600,
-          marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4,
-        }}>
-          ✓ Migration applied
-        </div>
-      )}
-      {editing ? (
-        <div>
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={16}
-            style={{
-              width: '100%', resize: 'vertical', borderRadius: 6,
-              border: '1px solid var(--color-border)',
-              padding: '10px 12px', fontSize: 12, lineHeight: 1.5,
-              background: '#1c1c1e', color: '#e5e5ea',
-              fontFamily: '"SF Mono", "Fira Code", monospace',
-            }}
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button onClick={save} style={btnStyle('primary')}>Save</button>
-            <button onClick={() => setEditing(false)} style={btnStyle('ghost')}>Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          {sql ? (
-            <pre style={{
-              background: '#1c1c1e', color: '#e5e5ea',
-              borderRadius: 8, padding: '14px 16px',
-              fontSize: 12, lineHeight: 1.5, overflow: 'auto',
-              fontFamily: '"SF Mono", "Fira Code", monospace',
-              margin: 0,
-            }}>
-              {sql}
-            </pre>
-          ) : (
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-              No schema yet. This is generated automatically when Design is approved.
-            </p>
-          )}
-          {step.status !== 'approved' && (
-            <button onClick={startEdit} style={{ ...btnStyle('ghost'), marginTop: 12 }}>
-              Edit SQL
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CodePanel({ step }: { step: FeatureStep }) {
-  const [selectedFile, setSelectedFile] = useState(0);
-  const content = isCodeContent(step.content) ? step.content : null;
-  const files   = content?.files ?? [];
-
-  if (!files.length) {
-    return (
-      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-        Code will be generated automatically when Schema is approved.
-      </p>
-    );
-  }
-
-  const active = files[selectedFile];
-
-  return (
-    <div>
-      {/* File tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 0, flexWrap: 'wrap' }}>
-        {files.map((f, i) => (
-          <button
-            key={f.name}
-            onClick={() => setSelectedFile(i)}
-            style={{
-              padding: '4px 12px', borderRadius: '6px 6px 0 0', fontSize: 11,
-              border: '1px solid var(--color-border)',
-              borderBottom: i === selectedFile ? '1px solid #1c1c1e' : '1px solid var(--color-border)',
-              background:   i === selectedFile ? '#1c1c1e' : 'var(--color-surface)',
-              color:        i === selectedFile ? '#e5e5ea' : 'var(--color-text-muted)',
-              cursor: 'pointer', fontFamily: '"SF Mono", "Fira Code", monospace',
-            }}
-          >
-            {f.name}
-            <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.6 }}>{f.line_count}L</span>
-          </button>
-        ))}
-      </div>
-      <pre style={{
-        background: '#1c1c1e', color: '#e5e5ea',
-        borderRadius: '0 8px 8px 8px', padding: '14px 16px',
-        fontSize: 12, lineHeight: 1.5, overflow: 'auto', maxHeight: 480,
-        fontFamily: '"SF Mono", "Fira Code", monospace',
-        margin: 0,
-      }}>
-        {active?.content ?? ''}
-      </pre>
-    </div>
-  );
-}
-
-function DeployPanel({
-  step,
-  onEdit,
-}: {
-  step: FeatureStep;
-  onEdit: (patch: { github_pr_url: string | null; netlify_deploy_url: string | null }) => void;
-}) {
-  const [editing, setEditing]   = useState(false);
-  const [prUrl,   setPrUrl]     = useState('');
-  const [deployUrl, setDeployUrl] = useState('');
-  const content = isDeployContent(step.content) ? step.content : null;
-
-  function startEdit() {
-    setPrUrl(content?.github_pr_url ?? '');
-    setDeployUrl(content?.netlify_deploy_url ?? '');
-    setEditing(true);
-  }
-
-  function save() {
-    onEdit({
-      github_pr_url:       prUrl.trim() || null,
-      netlify_deploy_url:  deployUrl.trim() || null,
-    });
-    setEditing(false);
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {editing ? (
-        <>
-          <label style={labelStyle}>
-            GitHub PR URL
-            <input
-              type="url"
-              value={prUrl}
-              onChange={(e) => setPrUrl(e.target.value)}
-              placeholder="https://github.com/org/repo/pull/123"
-              style={inputStyle}
-            />
-          </label>
-          <label style={labelStyle}>
-            Netlify Deploy URL
-            <input
-              type="url"
-              value={deployUrl}
-              onChange={(e) => setDeployUrl(e.target.value)}
-              placeholder="https://deploy-preview-123--app.netlify.app"
-              style={inputStyle}
-            />
-          </label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={save} style={btnStyle('primary')}>Save</button>
-            <button onClick={() => setEditing(false)} style={btnStyle('ghost')}>Cancel</button>
-          </div>
-        </>
-      ) : (
-        <>
-          <DeployLink label="GitHub PR" url={content?.github_pr_url} />
-          <DeployLink label="Netlify Deploy" url={content?.netlify_deploy_url} />
-          {step.status !== 'approved' && (
-            <button onClick={startEdit} style={btnStyle('ghost')}>Edit links</button>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function DeployLink({ label, url }: { label: string; url: string | null | undefined }) {
-  return (
-    <div>
-      <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 2 }}>{label}</p>
-      {url ? (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ fontSize: 13, color: '#0a84ff', wordBreak: 'break-all' }}
-        >
-          {url}
-        </a>
-      ) : (
-        <p style={{ fontSize: 13, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-          Not set
+    <div
+      data-testid="human-task-banner"
+      className="flex items-start gap-3 px-4 py-3 mb-4 bg-amber-50 border border-amber-200 rounded-lg"
+    >
+      <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-amber-800">
+          {tasks.length} pending {tasks.length === 1 ? 'task' : 'tasks'} required
         </p>
-      )}
-    </div>
-  );
-}
-
-function QaPanel({
-  step,
-  onEdit,
-}: {
-  step: FeatureStep;
-  onEdit: (patch: { test_notes: string | null }) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft]     = useState('');
-  const content = isQaContent(step.content) ? step.content : null;
-  const notes   = content?.test_notes ?? '';
-
-  function startEdit() {
-    setDraft(notes);
-    setEditing(true);
-  }
-
-  function save() {
-    onEdit({ test_notes: draft.trim() || null });
-    setEditing(false);
-  }
-
-  return (
-    <div>
-      {content?.sign_off_by && (
-        <p style={{ fontSize: 12, color: '#30d158', marginBottom: 8, fontWeight: 600 }}>
-          ✓ Signed off by {content.sign_off_by}
-        </p>
-      )}
-      {editing ? (
-        <div>
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={10}
-            placeholder="Document test cases, edge cases checked, bugs found…"
-            style={{
-              width: '100%', resize: 'vertical', borderRadius: 6,
-              border: '1px solid var(--color-border)',
-              padding: '10px 12px', fontSize: 13, lineHeight: 1.6,
-              background: 'var(--color-bg)', color: 'var(--color-text)',
-              fontFamily: 'inherit',
-            }}
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button onClick={save} style={btnStyle('primary')}>Save</button>
-            <button onClick={() => setEditing(false)} style={btnStyle('ghost')}>Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          {notes ? (
-            <pre style={{
-              whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13,
-              lineHeight: 1.7, color: 'var(--color-text)', margin: 0,
-              fontFamily: 'inherit',
-            }}>
-              {notes}
-            </pre>
-          ) : (
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-              No test notes yet.
-            </p>
-          )}
-          {step.status !== 'approved' && (
-            <button onClick={startEdit} style={{ ...btnStyle('ghost'), marginTop: 12 }}>
-              Edit notes
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Iteration history
-// ─────────────────────────────────────────────────────────────────────────────
-function IterationHistory({ iterations }: { iterations: FeatureIteration[] }) {
-  const [open, setOpen] = useState(false);
-  if (!iterations.length) return null;
-
-  return (
-    <div style={{ marginTop: 16 }}>
-      <button
-        onClick={() => setOpen((p) => !p)}
-        style={{
-          fontSize: 12, color: 'var(--color-text-muted)', background: 'none',
-          border: 'none', cursor: 'pointer', padding: 0,
-        }}
-      >
-        {open ? '▾' : '▸'} {iterations.length} revision{iterations.length !== 1 ? 's' : ''}
-      </button>
-      {open && (
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {iterations.map((iter) => (
-            <div
-              key={iter.id}
-              style={{
-                padding: '8px 12px', borderRadius: 6,
-                background: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
-              <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginRight: 8 }}>
-                #{iter.iteration_number}
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--color-text)' }}>
-                {iter.change_note}
-              </span>
-            </div>
+        <ul className="mt-1 space-y-0.5">
+          {tasks.slice(0, 3).map(t => (
+            <li key={t.id} className="text-xs text-amber-700 truncate">• {t.title}</li>
           ))}
-        </div>
-      )}
+          {tasks.length > 3 && (
+            <li className="text-xs text-amber-500">+ {tasks.length - 3} more</li>
+          )}
+        </ul>
+      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step accordion item
+// Chat sidebar (Design step only)
 // ─────────────────────────────────────────────────────────────────────────────
-function StepAccordion({
-  step,
-  feature,
-  isOpen,
-  onToggle,
-  onApprove,
-  onRequestChanges,
-  onEditContent,
-  activeStepTab,
-  onStepTabChange,
-}: {
-  step:             FeatureStep;
-  feature:          Feature;
-  isOpen:           boolean;
-  onToggle:         () => void;
-  onApprove:        (stepId: string) => void;
-  onRequestChanges: (stepId: string, note: string) => void;
-  onEditContent:    (stepId: string, patch: Record<string, unknown>) => void;
-  activeStepTab:    number;
-  onStepTabChange:  (n: number) => void;
-}) {
-  const [tasks,        setTasks]      = useState<HumanTask[]>([]);
-  const [iterations,   setIterations] = useState<FeatureIteration[]>([]);
-  const [changeNote,   setChangeNote] = useState('');
-  const [showReject,   setShowReject] = useState(false);
-  const [acting,       setActing]     = useState(false);
 
-  const renderState = getStepRenderState(step);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    getPendingTasksForStep(step.id).then(setTasks).catch(console.error);
-    getStepIterations(step.id).then(setIterations).catch(console.error);
-  }, [isOpen, step.id, step.status]);
-
-  async function handleApprove() {
-    setActing(true);
-    try {
-      onApprove(step.id);
-    } finally {
-      setActing(false);
-    }
-  }
-
-  async function handleRequestChanges() {
-    if (!changeNote.trim()) return;
-    setActing(true);
-    try {
-      onRequestChanges(step.id, changeNote.trim());
-      setChangeNote('');
-      setShowReject(false);
-    } finally {
-      setActing(false);
-    }
-  }
-
-  function handleDismissTask(taskId: string) {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    // optimistic — actual DB update happens server-side when resolveHumanTask is called
-    import('@/api/projectHub').then(({ resolveHumanTask }) => resolveHumanTask(taskId)).catch(console.error);
-  }
-
-  const stepLabel = LABELS[step.step_number] ?? `Step ${step.step_number}`;
-
-  return (
-    <div style={{
-      border: '1px solid var(--color-border)',
-      borderRadius: 10,
-      overflow: 'hidden',
-      opacity: renderState === 'locked' ? 0.5 : 1,
-    }}>
-      {/* Header */}
-      <button
-        data-testid={`step-${step.step_number}-header`}
-        onClick={renderState !== 'locked' ? onToggle : undefined}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '14px 16px', background: isOpen ? 'var(--color-surface)' : 'transparent',
-          border: 'none', cursor: renderState === 'locked' ? 'default' : 'pointer',
-          textAlign: 'left',
-        }}
-      >
-        {/* Circle indicator */}
-        <div style={{
-          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: renderState === 'approved'
-            ? '#30d158'
-            : renderState === 'active'
-              ? '#0a84ff'
-              : 'var(--color-border)',
-          color: renderState === 'locked' ? 'var(--color-text-muted)' : '#fff',
-          fontSize: 13, fontWeight: 700,
-        }}>
-          {renderState === 'approved' ? '✓' : step.step_number}
-        </div>
-
-        <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>
-            {stepLabel}
-          </p>
-        </div>
-
-        <StatusChip status={step.status} />
-
-        <span style={{ color: 'var(--color-text-muted)', fontSize: 12, marginLeft: 4 }}>
-          {isOpen ? '▴' : '▾'}
-        </span>
-      </button>
-
-      {/* Body */}
-      {isOpen && renderState !== 'locked' && (
-        <div style={{ padding: '0 16px 16px' }}>
-          {/* Sync this step's tab with the chat sidebar */}
-          {activeStepTab !== step.step_number && (
-            <div style={{ marginBottom: 10 }}>
-              <button
-                onClick={() => onStepTabChange(step.step_number)}
-                style={{
-                  fontSize: 11, padding: '3px 10px', borderRadius: 6,
-                  background: '#0a84ff1a', color: '#0a84ff',
-                  border: '1px solid #0a84ff44', cursor: 'pointer',
-                }}
-              >
-                Switch chat to {stepLabel}
-              </button>
-            </div>
-          )}
-
-          {/* Human task banner */}
-          <HumanTaskBanner tasks={tasks} onDismiss={handleDismissTask} />
-
-          {/* Step content */}
-          <div style={{ marginBottom: 16 }}>
-            {step.step_number === 1 && (
-              <DesignPanel
-                step={step}
-                onEdit={(text) => onEditContent(step.id, { spec_text: text })}
-              />
-            )}
-            {step.step_number === 2 && (
-              <SchemaPanel
-                step={step}
-                onEdit={(sql) => onEditContent(step.id, { sql })}
-              />
-            )}
-            {step.step_number === 3 && <CodePanel step={step} />}
-            {step.step_number === 4 && (
-              <DeployPanel
-                step={step}
-                onEdit={(patch) => onEditContent(step.id, patch)}
-              />
-            )}
-            {step.step_number === 5 && (
-              <QaPanel
-                step={step}
-                onEdit={(patch) => onEditContent(step.id, patch)}
-              />
-            )}
-          </div>
-
-          {/* Iteration history */}
-          <IterationHistory iterations={iterations} />
-
-          {/* Approve / Request changes */}
-          {renderState === 'active' && (
-            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {showReject ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <textarea
-                    value={changeNote}
-                    onChange={(e) => setChangeNote(e.target.value)}
-                    rows={3}
-                    placeholder="Describe what needs to change…"
-                    style={{
-                      borderRadius: 6, border: '1px solid var(--color-border)',
-                      padding: '8px 10px', fontSize: 13, resize: 'vertical',
-                      background: 'var(--color-bg)', color: 'var(--color-text)',
-                      fontFamily: 'inherit',
-                    }}
-                  />
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      onClick={handleRequestChanges}
-                      disabled={acting || !changeNote.trim()}
-                      style={btnStyle('warning')}
-                    >
-                      Request changes
-                    </button>
-                    <button onClick={() => setShowReject(false)} style={btnStyle('ghost')}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button data-testid={`step-${step.step_number}-approve`} onClick={handleApprove} disabled={acting} style={btnStyle('success')}>
-                    ✓ Approve
-                  </button>
-                  <button data-testid={`step-${step.step_number}-request-changes`} onClick={() => setShowReject(true)} style={btnStyle('ghost')}>
-                    Request changes
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+interface ChatSidebarProps {
+  featureId:    string;
+  messages:     FeatureChatMessage[];
+  isStreaming:  boolean;
+  streamBuffer: string;
+  inputValue:   string;
+  onInputChange:(v: string) => void;
+  onSend:       () => void;
+  isLocked:     boolean;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Chat sidebar
-// ─────────────────────────────────────────────────────────────────────────────
 function ChatSidebar({
-  feature,
-  activeTab,
-  onTabChange,
-  sessionToken,
-}: {
-  feature:      Feature;
-  activeTab:    number;
-  onTabChange:  (n: number) => void;
-  sessionToken: string;
-}) {
-  const [threads,    setThreads]    = useState<Record<number, FeatureChatMessage[]>>({});
-  const [input,      setInput]      = useState('');
-  const [streaming,  setStreaming]  = useState(false);
-  const [streamBuf,  setStreamBuf]  = useState('');
+  messages, isStreaming, streamBuffer,
+  inputValue, onInputChange, onSend, isLocked,
+}: ChatSidebarProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Load thread when tab changes
-  useEffect(() => {
-    if (threads[activeTab]) return; // already loaded
-    getChatThread(feature.id, activeTab as 1 | 2 | 3 | 4 | 5)
-      .then((msgs) => setThreads((prev) => ({ ...prev, [activeTab]: msgs })))
-      .catch(console.error);
-  }, [activeTab, feature.id]);
-
-  // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [threads, streamBuf]);
+  }, [messages, streamBuffer]);
 
-  const messages = threads[activeTab] ?? [];
-
-  async function handleSend() {
-    if (!input.trim() || streaming) return;
-    const text = input.trim();
-    setInput('');
-
-    // Optimistic user message
-    const userMsg: FeatureChatMessage = {
-      id:          crypto.randomUUID(),
-      feature_id:  feature.id,
-      step_number: activeTab as 1 | 2 | 3 | 4 | 5,
-      role:        'user',
-      content:     text,
-      created_at:  new Date().toISOString(),
-    };
-    setThreads((prev) => ({ ...prev, [activeTab]: [...(prev[activeTab] ?? []), userMsg] }));
-
-    setStreaming(true);
-    setStreamBuf('');
-
-    try {
-      await sendChatMessage(
-        feature.id,
-        activeTab as 1 | 2 | 3 | 4 | 5,
-        text,
-        sessionToken,
-        (chunk) => setStreamBuf((b) => b + chunk),
-        (full) => {
-          const assistantMsg: FeatureChatMessage = {
-            id:          crypto.randomUUID(),
-            feature_id:  feature.id,
-            step_number: activeTab as 1 | 2 | 3 | 4 | 5,
-            role:        'assistant',
-            content:     full,
-            created_at:  new Date().toISOString(),
-          };
-          setThreads((prev) => ({
-            ...prev,
-            [activeTab]: [...(prev[activeTab] ?? []), assistantMsg],
-          }));
-          setStreamBuf('');
-          setStreaming(false);
-        }
-      );
-    } catch (err) {
-      console.error('Chat error:', err);
-      setStreamBuf('');
-      setStreaming(false);
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      if (!isLocked && inputValue.trim() && !isStreaming) onSend();
     }
-  }
+  };
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', height: '100%',
-      background: 'var(--color-surface)', borderLeft: '1px solid var(--color-border)',
-    }}>
-      {/* Tabs */}
-      <div style={{
-        display: 'flex', borderBottom: '1px solid var(--color-border)',
-        padding: '0 4px', flexShrink: 0,
-      }}>
-        {([1, 2, 3, 4, 5] as const).map((n) => (
-          <button
-            key={n}
-            data-testid={`chat-tab-${n}`}
-            onClick={() => onTabChange(n)}
-            style={{
-              flex: 1, padding: '10px 4px', border: 'none',
-              borderBottom: activeTab === n ? '2px solid #0a84ff' : '2px solid transparent',
-              background: 'none', cursor: 'pointer',
-              fontSize: 11, fontWeight: 600,
-              color: activeTab === n ? '#0a84ff' : 'var(--color-text-muted)',
-            }}
-          >
-            {LABELS[n]}
-          </button>
-        ))}
+    <div
+      data-testid="design-chat-sidebar"
+      className="flex flex-col h-full border-r border-gray-100 bg-gray-50/50"
+    >
+      <div className="px-4 py-3 border-b border-gray-100 bg-white">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          Design Chat
+        </p>
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {messages.length === 0 && !streaming && (
-          <p style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center', marginTop: 24 }}>
-            Ask Claude anything about the {LABELS[activeTab]} step.
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {messages.length === 0 && !isStreaming && (
+          <p className="text-sm text-gray-400 text-center mt-8">
+            Chat with Claude to refine the feature spec.
           </p>
         )}
-        {messages.map((msg) => (
-          <ChatBubble key={msg.id} message={msg} />
+        {messages.map(msg => (
+          <div
+            key={msg.id}
+            data-testid={`chat-message-${msg.role}`}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={[
+                'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm',
+                msg.role === 'user'
+                  ? 'bg-indigo-600 text-white rounded-br-sm'
+                  : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm shadow-sm',
+              ].join(' ')}
+            >
+              <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+            </div>
+          </div>
         ))}
-        {streaming && streamBuf && (
-          <ChatBubble
-            message={{
-              id:          'stream',
-              feature_id:  feature.id,
-              step_number: activeTab as 1 | 2 | 3 | 4 | 5,
-              role:        'assistant',
-              content:     streamBuf + '▊',
-              created_at:  new Date().toISOString(),
-            }}
-          />
+
+        {/* Streaming bubble */}
+        {isStreaming && streamBuffer && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm bg-white border border-gray-200 text-gray-800 shadow-sm">
+              <p className="whitespace-pre-wrap leading-relaxed">{streamBuffer}</p>
+              <span className="inline-block w-1.5 h-4 bg-gray-400 animate-pulse ml-0.5 rounded-sm" />
+            </div>
+          </div>
         )}
+        {isStreaming && !streamBuffer && (
+          <div className="flex justify-start">
+            <div className="rounded-2xl rounded-bl-sm px-3.5 py-2.5 bg-white border border-gray-200 shadow-sm">
+              <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div style={{
-        borderTop: '1px solid var(--color-border)', padding: '10px 12px',
-        display: 'flex', gap: 8, alignItems: 'flex-end', flexShrink: 0,
-      }}>
-        <textarea
-          data-testid="chat-input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={streaming}
-          rows={2}
-          placeholder="Ask Claude… (Enter to send, Shift+Enter for newline)"
-          style={{
-            flex: 1, resize: 'none', borderRadius: 8,
-            border: '1px solid var(--color-border)',
-            padding: '8px 10px', fontSize: 13, lineHeight: 1.4,
-            background: 'var(--color-bg)', color: 'var(--color-text)',
-            fontFamily: 'inherit',
-          }}
-        />
-        <button
-          data-testid="chat-send"
-          onClick={handleSend}
-          disabled={!input.trim() || streaming}
-          style={{
-            padding: '8px 14px', borderRadius: 8, border: 'none',
-            background: !input.trim() || streaming ? 'var(--color-border)' : '#0a84ff',
-            color: '#fff', fontWeight: 600, fontSize: 13, cursor: !input.trim() || streaming ? 'default' : 'pointer',
-            flexShrink: 0,
-          }}
-        >
-          {streaming ? '…' : '↑'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ChatBubble({ message }: { message: FeatureChatMessage }) {
-  const isUser = message.role === 'user';
-  return (
-    <div style={{
-      display: 'flex',
-      justifyContent: isUser ? 'flex-end' : 'flex-start',
-    }}>
-      <div style={{
-        maxWidth: '85%',
-        padding: '8px 12px',
-        borderRadius: isUser ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-        background: isUser ? '#0a84ff' : 'var(--color-bg)',
-        color:      isUser ? '#fff' : 'var(--color-text)',
-        border:     isUser ? 'none' : '1px solid var(--color-border)',
-        fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-      }}>
-        {message.content}
+      <div className="p-3 bg-white border-t border-gray-100">
+        <div className="flex items-end gap-2">
+          <textarea
+            data-testid="chat-input"
+            value={inputValue}
+            onChange={e => onInputChange(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder={isLocked ? 'Design is approved — chat closed.' : 'Message Claude…'}
+            disabled={isLocked || isStreaming}
+            rows={2}
+            className={[
+              'flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm',
+              'focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent',
+              'disabled:bg-gray-50 disabled:text-gray-400',
+            ].join(' ')}
+          />
+          <button
+            data-testid="chat-send-button"
+            onClick={onSend}
+            disabled={isLocked || isStreaming || !inputValue.trim()}
+            className={[
+              'flex-shrink-0 p-2.5 rounded-xl transition-colors',
+              'disabled:opacity-40 disabled:cursor-not-allowed',
+              'bg-indigo-600 text-white hover:bg-indigo-700',
+            ].join(' ')}
+          >
+            {isStreaming
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <Send className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared style helpers
+// Step output editor (shared across all tabs)
 // ─────────────────────────────────────────────────────────────────────────────
-function btnStyle(variant: 'primary' | 'ghost' | 'success' | 'warning'): React.CSSProperties {
-  const base: React.CSSProperties = {
-    padding: '7px 14px', borderRadius: 8, fontSize: 13,
-    fontWeight: 600, cursor: 'pointer', border: 'none',
+
+interface OutputPanelProps {
+  step:           FeatureStep;
+  tasks:          HumanTask[];
+  outputDraft:    string;
+  onOutputChange: (v: string) => void;
+  onSaveOutput:   () => void;
+  onApprove:      () => void;
+  isApproving:    boolean;
+  isSaving:       boolean;
+  designApproved: boolean;
+}
+
+function OutputPanel({
+  step, tasks, outputDraft, onOutputChange,
+  onSaveOutput, onApprove, isApproving, isSaving, designApproved,
+}: OutputPanelProps) {
+  const renderState = getStepRenderState(step);
+  const isLocked    = renderState === 'locked';
+  const isApproved  = renderState === 'approved';
+  const isDesign    = step.step_name === 'design';
+
+  const placeholder: Record<FeatureStepName, string> = {
+    design:  'Write the feature spec — describe what this feature does, UX flow, edge cases…',
+    schema:  'Paste the SQL migration here — CREATE TABLE, ALTER TABLE, RLS policies…',
+    code:    'Generated code output will appear here — components, hooks, API calls…',
+    preview: 'Record the preview URL and any notes about what was tested in staging…',
+    qa:      'QA sign-off notes — test cases run, pass/fail results, known issues…',
+    live:    'Release notes — what shipped, who approved, rollback procedure if needed…',
   };
-  switch (variant) {
-    case 'primary':
-      return { ...base, background: '#0a84ff', color: '#fff' };
-    case 'success':
-      return { ...base, background: '#30d158', color: '#fff' };
-    case 'warning':
-      return { ...base, background: '#ff9f0a', color: '#fff' };
-    case 'ghost':
-    default:
-      return {
-        ...base, background: 'transparent', color: 'var(--color-text-muted)',
-        border: '1px solid var(--color-border)',
-      };
-  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header row */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-semibold text-gray-900">
+            {STEP_LABELS[step.step_number]}
+          </h2>
+          <StepStatusBadge status={step.status} />
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Save button — only when editable and has changes */}
+          {!isLocked && !isApproved && (
+            <button
+              data-testid="save-output-button"
+              onClick={onSaveOutput}
+              disabled={isSaving}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              {isSaving ? 'Saving…' : 'Save draft'}
+            </button>
+          )}
+
+          {/* Approve button */}
+          {!isApproved && !isLocked && (
+            <button
+              data-testid={isDesign ? 'approve-design-button' : `approve-step-${step.step_number}-button`}
+              onClick={onApprove}
+              disabled={isApproving || (!isDesign && !designApproved)}
+              className={[
+                'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                'disabled:opacity-40 disabled:cursor-not-allowed',
+                isDesign
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700',
+              ].join(' ')}
+            >
+              {isApproving
+                ? <span className="flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Approving…</span>
+                : isDesign
+                ? 'Approve Design ✓'
+                : `Approve ${STEP_LABELS[step.step_number]}`}
+            </button>
+          )}
+
+          {isApproved && (
+            <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-semibold">
+              <CheckCircle className="w-4 h-4" />
+              Approved
+              {step.approved_at && (
+                <span className="text-gray-400 font-normal ml-1">
+                  {new Date(step.approved_at).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          )}
+
+          {isLocked && (
+            <div className="flex items-center gap-1.5 text-gray-400 text-xs">
+              <Lock className="w-3.5 h-3.5" />
+              {isDesign ? 'Locked' : 'Awaiting design approval'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Pending tasks */}
+      <div className="px-6 pt-4">
+        <HumanTaskBanner tasks={tasks} />
+      </div>
+
+      {/* Output textarea */}
+      <div className="flex-1 px-6 pb-6 flex flex-col">
+        <textarea
+          data-testid={`step-output-${step.step_name}`}
+          value={outputDraft}
+          onChange={e => {
+            if (!isLocked && !isApproved) onOutputChange(e.target.value);
+          }}
+          readOnly={isLocked || isApproved}
+          placeholder={placeholder[step.step_name]}
+          className={[
+            'flex-1 w-full h-full resize-none rounded-xl border p-4 text-sm font-mono leading-relaxed',
+            'focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-transparent',
+            isLocked
+              ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
+              : isApproved
+              ? 'bg-emerald-50/40 border-emerald-100 text-gray-700 cursor-default'
+              : 'bg-white border-gray-200 text-gray-800',
+          ].join(' ')}
+        />
+      </div>
+    </div>
+  );
 }
-
-const labelStyle: React.CSSProperties = {
-  display: 'flex', flexDirection: 'column', gap: 4,
-  fontSize: 12, fontWeight: 600, color: 'var(--color-text)',
-};
-
-const inputStyle: React.CSSProperties = {
-  borderRadius: 6, border: '1px solid var(--color-border)',
-  padding: '8px 10px', fontSize: 13,
-  background: 'var(--color-bg)', color: 'var(--color-text)',
-  fontFamily: 'inherit',
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main screen
 // ─────────────────────────────────────────────────────────────────────────────
-export default function FeatureWorkflowScreen() {
-  const { id: projectId, featureId } = useParams<{ id: string; featureId: string }>();
-  const navigate = useNavigate();
 
+export default function FeatureWorkflowScreen() {
+  const { projectId, featureId } = useParams<{ projectId: string; featureId: string }>();
+  const navigate                  = useNavigate();
+
+  // ── Data ──────────────────────────────────────────────────────────────────
   const [feature,      setFeature]      = useState<Feature | null>(null);
   const [steps,        setSteps]        = useState<FeatureStep[]>([]);
+  const [tasks,        setTasks]        = useState<HumanTask[]>([]);
+  const [chatMessages, setChatMessages] = useState<FeatureChatMessage[]>([]);
   const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState('');
-  const [openStep,     setOpenStep]     = useState<number | null>(null);
-  const [chatTab,      setChatTab]      = useState<number>(1);
-  const [toastMsg,     setToastMsg]     = useState('');
-  const [sessionToken, setSessionToken] = useState('');
-  const [userId,       setUserId]       = useState('');
+  const [error,        setError]        = useState<string | null>(null);
 
-  // ── Load session token + user ID ──────────────────────────────────────────
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSessionToken(session?.access_token ?? '');
-      setUserId(session?.user?.id ?? '');
-    });
-  }, []);
+  // ── Tab navigation ────────────────────────────────────────────────────────
+  const [activeStep, setActiveStep] = useState<number>(1);
+
+  // ── Output drafts per step (step_number → draft string) ──────────────────
+  const [outputDrafts, setOutputDrafts] = useState<Record<number, string>>({});
+  const [isSaving,     setIsSaving]     = useState(false);
+  const [isApproving,  setIsApproving]  = useState(false);
+
+  // ── Chat state ────────────────────────────────────────────────────────────
+  const [chatInput,    setChatInput]    = useState('');
+  const [isStreaming,  setIsStreaming]  = useState(false);
+  const [streamBuffer, setStreamBuffer] = useState('');
 
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -1005,200 +392,282 @@ export default function FeatureWorkflowScreen() {
       const { feature: f, steps: s } = await getFeatureWithSteps(featureId);
       setFeature(f);
       setSteps(s);
-      // Auto-open active step
-      const activeStep = s.find((st) => st.status === 'active' || st.status === 'changes_requested');
-      if (activeStep) {
-        setOpenStep(activeStep.step_number);
-        setChatTab(activeStep.step_number);
-      } else {
-        // All approved or first step
-        const firstApproved = s.find((st) => st.status === 'approved');
-        setOpenStep(firstApproved ? firstApproved.step_number : 1);
-        setChatTab(1);
+
+      // Initialize output drafts from DB
+      const drafts: Record<number, string> = {};
+      s.forEach(step => { drafts[step.step_number] = step.output ?? ''; });
+      setOutputDrafts(drafts);
+
+      // Load design chat (step 1)
+      const msgs = await getChatThread(featureId, 1);
+      setChatMessages(msgs);
+
+      // Load tasks for active step
+      const activeStepRow = s.find(step => step.step_number === activeStep);
+      if (activeStepRow) {
+        const t = await getPendingTasksForStep(activeStepRow.id);
+        setTasks(t);
       }
     } catch (err) {
-      console.error(err);
-      setError('Failed to load feature');
+      setError(err instanceof Error ? err.message : 'Failed to load feature');
     } finally {
       setLoading(false);
     }
-  }, [featureId]);
+  }, [featureId, activeStep]);
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Toast helper ─────────────────────────────────────────────────────────
-  function toast(msg: string) {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 3000);
-  }
+  // ── Re-load tasks when active step changes ────────────────────────────────
+  useEffect(() => {
+    const stepRow = steps.find(s => s.step_number === activeStep);
+    if (!stepRow) return;
+    getPendingTasksForStep(stepRow.id)
+      .then(setTasks)
+      .catch(console.error);
+  }, [activeStep, steps]);
 
-  // ── Step actions ─────────────────────────────────────────────────────────
-  async function handleApprove(stepId: string) {
+  // ── Step lookup helpers ───────────────────────────────────────────────────
+  const stepMap       = indexStepsByName(steps);
+  const activeStepRow = steps.find(s => s.step_number === activeStep);
+  const designApproved = isDesignApproved(steps);
+  const pipelineDone   = isPipelineComplete(steps);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleSaveOutput = async () => {
+    if (!activeStepRow) return;
+    setIsSaving(true);
     try {
-      await approveStep(stepId, userId);
-      toast('Step approved');
+      await updateStepOutput(activeStepRow.id, outputDrafts[activeStep] ?? '');
+      // Ensure step is in_progress if it was not_started
+      if (activeStepRow.status === 'not_started') {
+        await startStep(activeStepRow.id);
+        await load();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!activeStepRow) return;
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) return;
+
+    setIsApproving(true);
+    try {
+      if (activeStep === 1) {
+        await approveDesign(activeStepRow.id, userId);
+      } else {
+        await approveStep(activeStepRow.id, userId);
+      }
       await load();
     } catch (err) {
       console.error(err);
-      toast('Failed to approve step');
+    } finally {
+      setIsApproving(false);
     }
-  }
+  };
 
-  async function handleRequestChanges(stepId: string, note: string) {
+  const handleSendChat = async () => {
+    if (!featureId || !chatInput.trim() || isStreaming) return;
+
+    const msg = chatInput.trim();
+    setChatInput('');
+    setIsStreaming(true);
+    setStreamBuffer('');
+
+    const sessionRes = await supabase.auth.getSession();
+    const token = sessionRes.data.session?.access_token ?? '';
+
     try {
-      await requestChanges(stepId, note);
-      toast('Changes requested');
-      await load();
+      await sendChatMessage(
+        featureId,
+        1,
+        msg,
+        token,
+        chunk => setStreamBuffer(prev => prev + chunk),
+        async fullResponse => {
+          setIsStreaming(false);
+          setStreamBuffer('');
+          // Reload thread to get persisted messages
+          const msgs = await getChatThread(featureId, 1);
+          setChatMessages(msgs);
+        }
+      );
     } catch (err) {
       console.error(err);
-      toast('Failed to request changes');
+      setIsStreaming(false);
+      setStreamBuffer('');
     }
-  }
+  };
 
-  async function handleEditContent(stepId: string, patch: Record<string, unknown>) {
-    try {
-      await updateStepContent(stepId, patch);
-      await load();
-    } catch (err) {
-      console.error(err);
-      toast('Failed to save');
-    }
-  }
+  const handleSelectStep = (stepNumber: number) => {
+    setActiveStep(stepNumber);
+  };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render guards ─────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>Loading…</p>
+      <div className="flex items-center justify-center h-screen bg-white">
+        <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
       </div>
     );
   }
 
   if (error || !feature) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <p style={{ color: '#ff3b30', fontSize: 14 }}>{error || 'Feature not found'}</p>
+      <div className="flex flex-col items-center justify-center h-screen gap-4">
+        <p className="text-sm text-red-600">{error ?? 'Feature not found'}</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm text-indigo-600 hover:underline"
+        >
+          Go back
+        </button>
       </div>
     );
   }
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--color-bg)' }}>
+  const isDesignTab       = activeStep === 1;
+  const designStep        = stepMap['design'];
+  const designChatLocked  = designStep?.status === 'approved';
 
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '14px 24px', borderBottom: '1px solid var(--color-border)',
-        background: 'var(--color-surface)', flexShrink: 0,
-      }}>
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <div
+      data-testid="feature-workflow-screen"
+      className="flex flex-col h-screen bg-white overflow-hidden"
+    >
+      {/* ── Top bar ── */}
+      <header className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-white z-10">
         <Link
-          to={`/projects/${projectId}/screens`}
-          style={{ fontSize: 13, color: 'var(--color-text-muted)', textDecoration: 'none' }}
+          to={`/projects/${projectId}`}
+          data-testid="back-to-project-link"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors"
         >
-          ← Screens
+          <ArrowLeft className="w-4 h-4" />
+          Project
         </Link>
-        <span style={{ color: 'var(--color-border)' }}>/</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text)' }}>
+        <ChevronRight className="w-4 h-4 text-gray-300" />
+        <span className="text-sm text-gray-900 font-medium truncate max-w-xs">
           {feature.name}
         </span>
 
-        {/* Priority chip */}
-        <span style={{
-          padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-          background: PRIORITY_COLORS[feature.priority] + '22',
-          color:      PRIORITY_COLORS[feature.priority],
-          border:     `1px solid ${PRIORITY_COLORS[feature.priority]}44`,
-        }}>
-          {feature.priority?.toUpperCase()}
-        </span>
+        {/* Pipeline complete badge */}
+        {pipelineDone && (
+          <span className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+            <CheckCircle className="w-3.5 h-3.5" />
+            Pipeline complete
+          </span>
+        )}
+      </header>
 
-        <div style={{ flex: 1 }} />
+      {/* ── Pipeline strip ── */}
+      <PipelineStrip
+        steps={steps}
+        activeStep={activeStep}
+        onSelectStep={handleSelectStep}
+      />
 
-        {/* Overall progress dots */}
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {steps.map((s) => (
-            <div
-              key={s.id}
-              title={LABELS[s.step_number]}
-              style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: s.status === 'approved'
-                  ? '#30d158'
-                  : s.status === 'active'
-                    ? '#0a84ff'
-                    : s.status === 'changes_requested'
-                      ? '#ff9f0a'
-                      : 'var(--color-border)',
-              }}
-            />
-          ))}
-        </div>
-      </div>
+      {/* ── Tab bar ── */}
+      <nav
+        data-testid="step-tab-bar"
+        className="flex border-b border-gray-100 px-6 bg-white"
+      >
+        {[1, 2, 3, 4, 5, 6].map(num => {
+          const stepRow   = steps.find(s => s.step_number === num);
+          const isLocked  = !stepRow || stepRow.status === 'locked';
+          const isActive  = activeStep === num;
 
-      {/* ── Two-panel body ────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          return (
+            <button
+              key={num}
+              data-testid={`tab-${STEP_NAMES[num]}`}
+              onClick={() => !isLocked && setActiveStep(num)}
+              disabled={isLocked}
+              className={[
+                'px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                'disabled:text-gray-300 disabled:cursor-not-allowed',
+                isActive
+                  ? 'border-indigo-600 text-indigo-600'
+                  : isLocked
+                  ? 'border-transparent text-gray-300'
+                  : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-200',
+              ].join(' ')}
+            >
+              {STEP_LABELS[num]}
+            </button>
+          );
+        })}
+      </nav>
 
-        {/* Left: workflow accordion */}
-        <div style={{
-          width: '55%', minWidth: 400, overflowY: 'auto',
-          padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 10,
-        }}>
-          {/* Feature meta */}
-          <div style={{ marginBottom: 8 }}>
-            {feature.description && (
-              <p style={{ fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 1.55, margin: '0 0 6px' }}>
-                {feature.description}
-              </p>
+      {/* ── Body ── */}
+      <div className="flex-1 flex overflow-hidden">
+        {activeStepRow ? (
+          <>
+            {/* Design tab: chat sidebar | output editor */}
+            {isDesignTab ? (
+              <>
+                <div className="w-72 flex-shrink-0 flex flex-col overflow-hidden">
+                  <ChatSidebar
+                    featureId={featureId!}
+                    messages={chatMessages}
+                    isStreaming={isStreaming}
+                    streamBuffer={streamBuffer}
+                    inputValue={chatInput}
+                    onInputChange={setChatInput}
+                    onSend={handleSendChat}
+                    isLocked={designChatLocked}
+                  />
+                </div>
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <OutputPanel
+                    step={activeStepRow}
+                    tasks={tasks}
+                    outputDraft={outputDrafts[activeStep] ?? ''}
+                    onOutputChange={v => setOutputDrafts(prev => ({ ...prev, [activeStep]: v }))}
+                    onSaveOutput={handleSaveOutput}
+                    onApprove={handleApprove}
+                    isApproving={isApproving}
+                    isSaving={isSaving}
+                    designApproved={designApproved}
+                  />
+                </div>
+              </>
+            ) : (
+              /* All other tabs: full-width output editor */
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <OutputPanel
+                  step={activeStepRow}
+                  tasks={tasks}
+                  outputDraft={outputDrafts[activeStep] ?? ''}
+                  onOutputChange={v => setOutputDrafts(prev => ({ ...prev, [activeStep]: v }))}
+                  onSaveOutput={handleSaveOutput}
+                  onApprove={handleApprove}
+                  isApproving={isApproving}
+                  isSaving={isSaving}
+                  designApproved={designApproved}
+                />
+              </div>
             )}
-            <p style={{ fontSize: 11, color: 'var(--color-text-muted)', margin: 0 }}>
-              Complexity: <strong>{feature.complexity}</strong>
-            </p>
-          </div>
-
-          {steps.map((step) => (
-            <StepAccordion
-              key={step.id}
-              step={step}
-              feature={feature}
-              isOpen={openStep === step.step_number}
-              onToggle={() => setOpenStep((p) => p === step.step_number ? null : step.step_number)}
-              onApprove={handleApprove}
-              onRequestChanges={handleRequestChanges}
-              onEditContent={handleEditContent}
-              activeStepTab={chatTab}
-              onStepTabChange={(n) => setChatTab(n)}
-            />
-          ))}
-        </div>
-
-        {/* Right: chat sidebar */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {sessionToken ? (
-            <ChatSidebar
-              feature={feature}
-              activeTab={chatTab}
-              onTabChange={(n) => setChatTab(n)}
-              sessionToken={sessionToken}
-            />
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>Sign in to use chat</p>
+          </>
+        ) : (
+          /* Step not yet initialized in DB */
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Lock className="w-8 h-8 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">
+                {designApproved
+                  ? 'This step will be initialized shortly.'
+                  : 'Approve the Design step to unlock this stage.'}
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-
-      {/* ── Toast ─────────────────────────────────────────────────────────── */}
-      {toastMsg && (
-        <div style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#1c1c1e', color: '#fff', padding: '10px 20px',
-          borderRadius: 10, fontSize: 13, fontWeight: 500,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.35)', zIndex: 999,
-        }}>
-          {toastMsg}
-        </div>
-      )}
     </div>
   );
 }

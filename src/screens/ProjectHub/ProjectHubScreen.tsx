@@ -12,45 +12,47 @@ import {
   getProjectHubStats,
   getProject,
   getPendingHumanTasks,
-  advanceProjectPhase,
   getSetupChecklistState,
   isSetupComplete,
-  nextPhase,
 } from '@/api/projectHub';
-import { updateProject } from '@/api/projects';
-import type { Project, ProjectHubStats, HumanTask, ProjectColor } from '@/types/db';
+import { updateProject, pushToProduction } from '@/api/projects';
+import type { Project, ProjectHubStats, HumanTask, ProjectColor, ProjectPhase } from '@/types/db';
+import DailyBriefingCard from '@/components/DailyBriefingCard';
+import PmChatPanel from '@/components/PmChatPanel';
+import TeamAvatar from '@/components/TeamAvatar';
+import ProjectHealthBadge from '@/components/ProjectHealthBadge';
+import RegressionCard from '@/components/RegressionCard';
+import HealthReportCard from '@/components/HealthReportCard';
 
 // ── Phase badge ────────────────────────────────────────────────────────────
+
+const PHASE_COLORS: Record<ProjectPhase, string> = {
+  alpha: '#bf5af2',
+  beta:  '#ff9f0a',
+  live:  '#30d158',
+};
 
 function PhaseBadge({
   phase,
   projectId,
-  onAdvanced,
+  onUpdated,
 }: {
-  phase:      'alpha' | 'beta' | 'live';
+  phase:      ProjectPhase;
   projectId:  string;
-  onAdvanced: () => void;
+  onUpdated:  () => void;
 }) {
-  const [open, setOpen]       = useState(false);
-  const [acting, setActing]   = useState(false);
-  const [toast, setToast]     = useState('');
-  const next = nextPhase(phase);
+  const [open,   setOpen]   = useState(false);
+  const [acting, setActing] = useState(false);
 
-  const colors: Record<string, string> = {
-    alpha: '#bf5af2',
-    beta:  '#ff9f0a',
-    live:  '#30d158',
-  };
+  const ALL_PHASES: ProjectPhase[] = ['alpha', 'beta', 'live'];
 
-  async function handleAdvance() {
-    if (!next) return;
+  async function handleSelect(selected: ProjectPhase) {
+    if (selected === phase || acting) return;
     setActing(true);
     try {
-      await advanceProjectPhase(projectId, next);
-      setToast(`Phase updated to ${next.charAt(0).toUpperCase() + next.slice(1)}`);
-      setTimeout(() => setToast(''), 3000);
+      await updateProject(projectId, { phase: selected });
       setOpen(false);
-      onAdvanced();
+      onUpdated();
     } catch (err) {
       console.error(err);
     } finally {
@@ -62,51 +64,163 @@ function PhaseBadge({
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <button
         data-testid="phase-badge-toggle"
-        onClick={() => next && setOpen((p) => !p)}
+        onClick={() => setOpen((p) => !p)}
         style={{
           padding: '4px 12px', borderRadius: 20, border: 'none',
-          backgroundColor: colors[phase], color: '#fff',
-          fontWeight: 700, fontSize: 13, cursor: next ? 'pointer' : 'default',
+          backgroundColor: PHASE_COLORS[phase], color: '#fff',
+          fontWeight: 700, fontSize: 13, cursor: 'pointer',
           textTransform: 'capitalize',
         }}
       >
-        {phase} {next && '▾'}
+        {phase} ▾
       </button>
 
-      {open && next && (
+      {open && (
         <div style={{
           position: 'absolute', top: '110%', left: 0, zIndex: 20,
           backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-          borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 12, minWidth: 200,
+          borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+          padding: 6, minWidth: 140,
         }}>
-          <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--color-text-muted)' }}>
-            Advance to next phase?
+          {ALL_PHASES.map((p) => (
+            <button
+              key={p}
+              data-testid={`phase-option-${p}`}
+              onClick={() => handleSelect(p)}
+              disabled={acting}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '7px 10px', border: 'none',
+                backgroundColor: p === phase ? PHASE_COLORS[p] + '18' : 'transparent',
+                borderRadius: 6, cursor: acting ? 'wait' : 'pointer',
+                textTransform: 'capitalize', fontSize: 13, fontWeight: p === phase ? 700 : 500,
+                color: p === phase ? PHASE_COLORS[p] : 'var(--color-text)',
+              }}
+            >
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%',
+                backgroundColor: PHASE_COLORS[p], flexShrink: 0,
+              }} />
+              {p}{p === phase && ' ✓'}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Launch modal ────────────────────────────────────────────────────────────
+
+function LaunchModal({
+  project,
+  onClose,
+  onLaunched,
+}: {
+  project:    Project;
+  onClose:    () => void;
+  onLaunched: () => void;
+}) {
+  const [launching, setLaunching] = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+
+  // Count alpha/beta features for the informational note
+  // (We don't have that count here easily — show the note generically)
+  // ProjectHubStats doesn't break down by phase, so we surface the note
+  // without a specific count. A future iteration can pull the count.
+
+  async function handleLaunch() {
+    setLaunching(true);
+    setError(null);
+    try {
+      await pushToProduction({ project_id: project.id });
+      onLaunched();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Launch failed');
+    } finally {
+      setLaunching(false);
+    }
+  }
+
+  return (
+    <div
+      data-testid="launch-modal-overlay"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        data-testid="launch-modal"
+        style={{
+          backgroundColor: 'var(--color-surface)',
+          borderRadius: 16, padding: '32px 28px',
+          maxWidth: 440, width: '100%',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.25)',
+        }}
+      >
+        <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 16 }}>🚀</div>
+
+        <h2 style={{
+          margin: '0 0 10px', fontSize: 22, fontWeight: 800,
+          color: 'var(--color-text)', textAlign: 'center',
+        }}>
+          Launch {project.name}
+        </h2>
+
+        <p style={{
+          margin: '0 0 20px', fontSize: 14, color: 'var(--color-text-muted)',
+          textAlign: 'center', lineHeight: 1.5,
+        }}>
+          This opens your product to the public and triggers your configured launch actions.
+        </p>
+
+        {/* Informational note — low visual weight, no warning color */}
+        <p style={{
+          margin: '0 0 24px', fontSize: 13, color: 'var(--color-text-muted)',
+          backgroundColor: 'var(--color-bg)', borderRadius: 8, padding: '10px 14px',
+          lineHeight: 1.5,
+        }}>
+          ℹ Some features may still be in Alpha or Beta — just so you know before you open the doors.
+        </p>
+
+        {error && (
+          <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
+            {error}
           </p>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
           <button
-            data-testid="phase-badge-advance"
-            onClick={handleAdvance}
-            disabled={acting}
+            data-testid="launch-cancel"
+            onClick={onClose}
+            disabled={launching}
             style={{
-              width: '100%', padding: '8px 14px', borderRadius: 6, border: 'none',
-              backgroundColor: colors[next], color: '#fff',
-              fontWeight: 600, fontSize: 14, cursor: 'pointer',
-              opacity: acting ? 0.6 : 1, textTransform: 'capitalize',
+              flex: 1, padding: '11px 16px', borderRadius: 10, fontSize: 14, fontWeight: 600,
+              border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)',
+              color: 'var(--color-text)', cursor: 'pointer',
             }}
           >
-            {acting ? 'Updating…' : `Move to ${next}`}
+            Cancel
+          </button>
+          <button
+            data-testid="launch-confirm"
+            onClick={handleLaunch}
+            disabled={launching}
+            style={{
+              flex: 2, padding: '11px 20px', borderRadius: 10, fontSize: 15, fontWeight: 800,
+              border: 'none', backgroundColor: '#30d158', color: '#fff',
+              cursor: launching ? 'wait' : 'pointer', opacity: launching ? 0.7 : 1,
+            }}
+          >
+            {launching ? 'Launching…' : 'Launch →'}
           </button>
         </div>
-      )}
-
-      {toast && (
-        <div style={{
-          position: 'fixed', bottom: 24, right: 24, zIndex: 100,
-          backgroundColor: '#1c1c1e', color: '#fff', padding: '10px 18px',
-          borderRadius: 8, fontSize: 14, boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-        }}>
-          ✓ {toast}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -386,9 +500,10 @@ export default function ProjectHubScreen() {
   const [editingField,    setEditingField]    = useState<string | null>(null);
   const [editName,        setEditName]        = useState('');
   const [editDesc,        setEditDesc]        = useState('');
-  const [editTag,         setEditTag]         = useState('');
   const [savingField,     setSavingField]     = useState<string | null>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showLaunchModal, setShowLaunchModal] = useState(false);
+  const [showPmChat,      setShowPmChat]      = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
 
   async function saveProjectField(field: string, value: unknown) {
@@ -522,7 +637,7 @@ export default function ProjectHubScreen() {
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <PhaseBadge phase={project.phase} projectId={project.id} onAdvanced={load} />
+          <PhaseBadge phase={project.phase} projectId={project.id} onUpdated={load} />
 
           {/* Status — inline select */}
           <select
@@ -588,66 +703,27 @@ export default function ProjectHubScreen() {
             );
           })()}
 
-          {/* Tech stack tags */}
-          {(project.tech_stack ?? []).map((tag) => (
-            <span
-              key={tag}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500,
-                backgroundColor: 'var(--color-bg)', color: 'var(--color-text-muted)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
-              {tag}
-              <button
-                onClick={() => saveProjectField('tech_stack', (project.tech_stack ?? []).filter((t) => t !== tag))}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                  fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1,
-                }}
-                title={`Remove ${tag}`}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+          {/* Tech stack intentionally removed — fixed stack (React/TS/Supabase/Netlify). Build 024-fix. */}
 
-          {/* Add tag input */}
-          {editingField === 'tech_stack' ? (
-            <input
-              autoFocus
-              value={editTag}
-              onChange={(e) => setEditTag(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && editTag.trim()) {
-                  const tags = [...(project.tech_stack ?? []), editTag.trim()];
-                  saveProjectField('tech_stack', tags);
-                  setEditTag('');
-                }
-                if (e.key === 'Escape') { setEditingField(null); setEditTag(''); }
-              }}
-              onBlur={() => { setEditingField(null); setEditTag(''); }}
-              placeholder="Tag name…"
-              style={{
-                padding: '2px 8px', borderRadius: 4, fontSize: 11,
-                border: '1px solid var(--color-accent)', outline: 'none',
-                backgroundColor: 'var(--color-bg)', color: 'var(--color-text)',
-                width: 90,
-              }}
-            />
-          ) : (
-            <button
-              onClick={() => setEditingField('tech_stack')}
-              style={{
-                padding: '3px 8px', borderRadius: 4, fontSize: 11,
-                border: '1px dashed var(--color-border)', backgroundColor: 'transparent',
-                color: 'var(--color-text-muted)', cursor: 'pointer',
-              }}
-            >
-              + tag
-            </button>
-          )}
+          {/* Project Health badge — Build 042 */}
+          <ProjectHealthBadge projectId={project.id} />
+
+          {/* Chat with Morgan — PM Chat trigger */}
+          <button
+            data-testid="pm-chat-open-btn"
+            onClick={() => setShowPmChat(true)}
+            title="Chat with Morgan, your AI PM"
+            style={{
+              marginLeft: 'auto',
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '5px 12px', borderRadius: 20,
+              border: '1px solid #CBD5E1', backgroundColor: '#F8FAFC',
+              cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#475569',
+            }}
+          >
+            <TeamAvatar member="morgan" size="xs" />
+            Chat with Morgan
+          </button>
         </div>
       </div>
 
@@ -673,6 +749,52 @@ export default function ProjectHubScreen() {
         </div>
       )}
 
+      {/* ── Import entry point (Build 041) — shown when project has no screens yet ── */}
+      {stats.screen_count === 0 && (
+        <div style={{
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'space-between',
+          padding:         '12px 16px',
+          marginBottom:    20,
+          border:          '1px dashed var(--color-border)',
+          borderRadius:    10,
+          backgroundColor: 'var(--color-surface)',
+        }}>
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: 14, fontWeight: 600, color: 'var(--color-text)' }}>
+              Already have a live app?
+            </p>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--color-text-muted)' }}>
+              Import your screens, features, and schema automatically.
+            </p>
+          </div>
+          <Link
+            data-testid="import-existing-app-link"
+            to={`/projects/${projectId}/import`}
+            style={{
+              padding:         '7px 14px',
+              borderRadius:    8,
+              border:          '1px solid var(--color-border)',
+              backgroundColor: 'var(--color-bg)',
+              fontSize:        13,
+              fontWeight:      600,
+              color:           'var(--color-text)',
+              textDecoration:  'none',
+              flexShrink:      0,
+              marginLeft:      16,
+            }}
+          >
+            Import existing app
+          </Link>
+        </div>
+      )}
+
+      {/* ── Daily Briefing — Build 040 ── */}
+      <div style={{ marginBottom: 20 }}>
+        <DailyBriefingCard projectId={project.id} />
+      </div>
+
       {/* ── Setup checklist ── */}
       <SetupChecklist project={project} stats={stats} />
 
@@ -685,6 +807,14 @@ export default function ProjectHubScreen() {
         {NAV_CARDS.map((card) => (
           <NavCard key={card.id} card={card} project={project} stats={stats} />
         ))}
+      </div>
+
+      {/* ── Regression Card — Build 042 ── */}
+      <RegressionCard projectId={project.id} />
+
+      {/* ── Health Report Card — Build 042 ── */}
+      <div style={{ marginBottom: 20 }}>
+        <HealthReportCard projectId={project.id} />
       </div>
 
       {/* ── Quick stats row ── */}
@@ -713,19 +843,36 @@ export default function ProjectHubScreen() {
 
       {/* ── Launch (Beta only) ── */}
       {project.phase === 'beta' && (
-        <Link
-          to={`/projects/${projectId}/push`}
+        <button
           data-testid="launch-btn"
+          onClick={() => setShowLaunchModal(true)}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             width: '100%', padding: '16px 24px', borderRadius: 12,
             backgroundColor: '#30d158', color: '#fff',
-            fontSize: 18, fontWeight: 800, textDecoration: 'none',
+            fontSize: 18, fontWeight: 800, border: 'none', cursor: 'pointer',
             boxSizing: 'border-box',
           }}
         >
-          🚀 Launch
-        </Link>
+          🚀 Launch →
+        </button>
+      )}
+
+      {/* ── Launch modal ── */}
+      {showLaunchModal && project && (
+        <LaunchModal
+          project={project}
+          onClose={() => setShowLaunchModal(false)}
+          onLaunched={load}
+        />
+      )}
+
+      {/* ── PM Chat panel — Build 040 ── */}
+      {showPmChat && (
+        <PmChatPanel
+          projectId={project.id}
+          onClose={() => setShowPmChat(false)}
+        />
       )}
     </div>
   );
