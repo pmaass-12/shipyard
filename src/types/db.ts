@@ -68,6 +68,8 @@ export interface Project {
   last_activity_at: string;           // ISO 8601
   created_at:       string;
   updated_at:       string;
+  // Build 044: first-run experience
+  first_run_completed_at?: string | null;  // NULL = first-run active (optional until migration applied)
 }
 
 // ── project_summary view row ──────────────────────────────────────────────
@@ -289,24 +291,7 @@ export interface Profile {
 }
 
 // ── Bug ───────────────────────────────────────────────────────────────────
-
-export interface Bug {
-  id:             string;
-  screen_id:      string;
-  title:          string;
-  description:    string | null;
-  severity:       BugSeverity;
-  status:         BugStatus;
-  // Widget-capture columns (nullable for manually-filed bugs):
-  screenshot_url: string | null;
-  annotations:    Annotation[] | null;
-  console_errors: ConsoleError[] | null;
-  route:          string | null;
-  user_agent:     string | null;
-  captured_at:    string | null; // ISO 8601
-  created_at:     string;
-  updated_at:     string;
-}
+// Note: Moved to Build 025 section below after ProtoTypes
 
 // ── ChangeRequest ─────────────────────────────────────────────────────────
 
@@ -771,6 +756,65 @@ export const STEP_LABELS: Record<number, string> = {
 
 export type PmChatRole = 'user' | 'assistant';
 
+// ── Build 048: PM Chat action card types ─────────────────────────────────
+
+export type CardType =
+  | 'text'              // regular Reeve message — no card UI
+  | 'design_approval'   // inline Approve Design button
+  | 'human_task'        // inline Mark done
+  | 'qa_complete'       // inline Ship to production
+  | 'qa_blocked'        // deep link — builder reads Quinn's failure notes
+  | 'feature_shipped'   // informational only
+  | 'daily_briefing';   // informational only
+
+export interface DesignApprovalPayload {
+  feature_id:     string;
+  feature_name:   string;
+  step_id:        string;
+  mockup_url:     string;
+  morgan_summary: string;
+}
+
+export interface HumanTaskPayload {
+  task_id:              string;
+  description:          string;
+  priority:             'P0' | 'P1' | 'P2' | 'P3';
+  settings_deep_link?:  string;
+}
+
+export interface QaCompletePayload {
+  feature_id:   string;
+  feature_name: string;
+  pass_count:   number;
+  report_url:   string;
+}
+
+export interface QaBlockedPayload {
+  feature_id:   string;
+  feature_name: string;
+  fail_count:   number;
+  report_url:   string;
+}
+
+export interface FeatureShippedPayload {
+  feature_id:   string;
+  feature_name: string;
+  live_url:     string;
+}
+
+export interface DailyBriefingCardPayload {
+  recommended_action?: string;
+}
+
+export type ActionPayload =
+  | DesignApprovalPayload
+  | HumanTaskPayload
+  | QaCompletePayload
+  | QaBlockedPayload
+  | FeatureShippedPayload
+  | DailyBriefingCardPayload
+  | null;
+
 export interface PmChatMessage {
   id:             string;
   project_id:     string;
@@ -780,6 +824,27 @@ export interface PmChatMessage {
   // Build 043: compaction columns (added via ALTER TABLE)
   compacted:      boolean;        // true = archived into a compacted_threads summary
   compacted_into: string | null;  // FK → compacted_threads.id
+  // Build 046: persona split
+  persona:        'reeve' | 'morgan';
+  // Build 048: action card columns
+  card_type:      CardType;
+  action_payload: ActionPayload;
+  created_at:     string;
+}
+
+// ── Build 049: Team Chat Room ──────────────────────────────────────────────────
+
+export type TeamPersona = 'reeve' | 'morgan' | 'wren' | 'sage' | 'finn' | 'quinn';
+export type PipelineStage = 'design' | 'schema' | 'code' | 'preview' | 'qa' | 'release';
+
+export interface TeamMessage {
+  id:             string;
+  project_id:     string;
+  feature_id:     string | null;
+  from_persona:   TeamPersona;
+  to_persona:     TeamPersona;
+  content:        string;
+  pipeline_stage: PipelineStage | null;
   created_at:     string;
 }
 
@@ -1083,3 +1148,572 @@ export interface ImportItem {
   resulting_id: string | null;
   created_at:   string;
 }
+
+// ── Build 032: Setup Wizard Full Redesign ──────────────────────────────────
+
+export type AudienceType    = 'personal' | 'b2c' | 'b2b';
+export type MonetizationType = 'free' | 'adsense' | 'subscription' | 'one_time';
+
+export interface WizardConfig {
+  audience_type:    AudienceType;
+  monetization_type: MonetizationType;
+  color:            string;   // hex, e.g. '#5b5bd6'
+}
+
+/** Returns 4 for personal (skips monetization), 5 for b2c/b2b */
+export function getWizardScreenCount(audienceType: AudienceType): number {
+  return audienceType === 'personal' ? 4 : 5;
+}
+
+/** Personal jumps screen 2 → screen 4 (silently skips monetization) */
+export function getNextWizardScreen(
+  currentScreen: number,
+  audienceType: AudienceType,
+): number {
+  if (currentScreen === 2 && audienceType === 'personal') return 4;
+  return currentScreen + 1;
+}
+
+/** Number of progress dots shown in wizard header */
+export function getWizardDotCount(audienceType: AudienceType): number {
+  return audienceType === 'personal' ? 4 : 5;
+}
+
+// ── Build 035: Changes (supersedes Build 012 Change Requests) ─────────────
+
+export type ChangeTargetType = 'screen' | 'feature';
+export type ChangePriority   = 'p0' | 'p1' | 'p2' | 'p3';
+export type ChangeStatus     = 'pending' | 'in_progress' | 'done' | 'dismissed';
+
+export interface ChangeAnnotation {
+  id:    string;
+  x:     number;   // percentage 0–100
+  y:     number;   // percentage 0–100
+  label: string;
+}
+
+export interface Change {
+  id:              string;
+  project_id:      string;
+  description:     string;
+  target_type:     ChangeTargetType;
+  target_id:       string;             // loose FK; resolve via target_type
+  priority:        ChangePriority;
+  status:          ChangeStatus;
+  pipeline_run_id: string | null;      // linked when "Start iteration" clicked
+  screenshot_url:  string | null;
+  annotations:     ChangeAnnotation[] | null;
+  created_by:      string;             // auth.users UUID
+  created_at:      string;
+  updated_at:      string;
+}
+
+export interface NewChangeInput {
+  project_id:    string;
+  description:   string;
+  target_type:   ChangeTargetType;
+  target_id:     string;
+  priority?:     ChangePriority;
+  screenshot_url?: string | null;
+  annotations?:  ChangeAnnotation[] | null;
+}
+
+// ── Build 025: Global Bugs View ───────────────────────────────────────────
+
+export type BugSource = 'widget' | 'manual';
+
+export interface BugAnnotation {
+  id: string;
+  x: number;
+  y: number;
+  label: string;
+}
+
+export interface Bug {
+  id: string;
+  project_id: string;
+  screen_id: string | null;
+  feature_id: string | null;
+  severity: BugSeverity;
+  status: BugStatus;
+  source: BugSource;
+  title: string;
+  description: string | null;
+  screenshot_url: string | null;
+  annotations: BugAnnotation[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BugWithContext extends Bug {
+  screen_name: string | null;
+  screen_route: string | null;
+  feature_name: string | null;
+}
+
+export const SEVERITY_ORDER: Record<BugSeverity, number> = {
+  p0: 0,
+  p1: 1,
+  p2: 2,
+  p3: 3,
+};
+
+// ── Build 026: Artifacts Panel ────────────────────────────────────────────
+
+export type ArtifactType = 'architecture' | 'spec' | 'migration' | 'contract' | 'generated_code' | 'upload';
+
+export interface Artifact {
+  id: string;
+  project_id: string;
+  artifact_type: ArtifactType;
+  feature_id: string | null;
+  filename: string;
+  storage_path: string;
+  file_size_bytes: number | null;
+  mime_type: string | null;
+  version: number;
+  is_current: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+// ── Build 029: Promo Page Configuration ────────────────────────────────────
+
+export interface PromoStep {
+  number: number;
+  title: string;
+  description: string;
+}
+
+export interface PromoFeatureCard {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface PromoPageConfig {
+  business_name: string | null;
+  promo_enabled: boolean;
+  promo_tagline: string | null;
+  promo_overline: string | null;
+  promo_problem_text: string | null;
+  promo_steps: PromoStep[] | null;
+  promo_features: PromoFeatureCard[] | null;
+}
+
+// ── Build 030: Supporting Documents ────────────────────────────────────────
+
+export type DocumentCategory =
+  | 'product_brief'
+  | 'pr_faq'
+  | 'wireframes'
+  | 'brand_guidelines'
+  | 'user_research'
+  | 'feature_spec'
+  | 'reference'
+  | 'other';
+
+export interface ProjectDocument {
+  id: string;
+  project_id: string;
+  name: string;
+  category: DocumentCategory;
+  file_path: string;
+  file_type: string;
+  file_size_bytes: number;
+  extracted_text: string | null;
+  summary_text: string | null;
+  auto_inject: boolean;
+  generation_count: number;
+  uploaded_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const AUTO_INJECT_CATEGORIES: DocumentCategory[] = [
+  'product_brief',
+  'pr_faq',
+  'brand_guidelines',
+  'user_research',
+  'wireframes',
+  'feature_spec',
+];
+
+export const ON_DEMAND_CATEGORIES: DocumentCategory[] = ['reference', 'other'];
+
+// ── Build 038: Deploy Setup Flow ───────────────────────────────────────────
+
+export type OAuthProvider         = 'github' | 'netlify';
+export type DeployStatusValue     = 'idle' | 'building' | 'deployed' | 'failed';
+export type SupabaseValidStatus   = 'unchecked' | 'valid' | 'invalid';
+
+/** Safe client type — access_token excluded from SELECT */
+export interface AccountConnection {
+  id:                string;
+  user_id:           string;
+  provider:          OAuthProvider;
+  account_name:      string | null;
+  account_avatar_url: string | null;
+  connected_at:      string;
+}
+
+export interface DeployConfig {
+  supabase_url:           string | null;
+  supabase_anon_key:      string | null;
+  netlify_site_id:        string | null;
+  netlify_site_url:       string | null;
+  netlify_build_command:  string;
+  netlify_publish_dir:    string;
+  netlify_node_version:   string;
+  deploy_status:          DeployStatusValue | null;
+  last_deploy_at:         string | null;
+  last_deploy_error:      string | null;
+}
+
+export interface DeployWizardState {
+  githubConnected:    boolean;
+  netlifyConnected:   boolean;
+  supabaseValidated:  SupabaseValidStatus;
+  deployStatus:       DeployStatusValue | null;
+}
+
+// ── Build 017: Analytics Dashboard ────────────────────────────────────────
+
+export interface AnalyticsConfig {
+  posthog_api_key:      string | null;   // server-side only — never return to client
+  posthog_project_id:   string | null;
+  analytics_enabled:    boolean;
+}
+
+export type AnalyticsConnectionStatus = 'connected' | 'disconnected' | 'error';
+
+export function deriveAnalyticsStatus(
+  project: Pick<AnalyticsConfig, 'posthog_api_key' | 'posthog_project_id'>
+): AnalyticsConnectionStatus {
+  if (!project.posthog_api_key || !project.posthog_project_id) return 'disconnected';
+  return 'connected';
+}
+
+// ── Build 018: Custom Domain ───────────────────────────────────────────────
+
+export type DomainStatus = 'not_configured' | 'dns_pending' | 'connected';
+export type DomainType   = 'apex' | 'subdomain';
+
+export interface CustomDomainConfig {
+  custom_domain:  string | null;
+  domain_status:  DomainStatus;
+}
+
+export interface DnsInstructions {
+  type:        DomainType;
+  record_type: 'A' | 'CNAME';
+  host:        string;    // '@' for apex, subdomain name for subdomain
+  value:       string;    // IP address or CNAME target
+}
+
+export function deriveDnsInstructions(
+  domain: string,
+  netlifySubdomain: string
+): DnsInstructions {
+  const parts  = domain.split('.');
+  const isApex = parts.length === 2;
+  return isApex
+    ? { type: 'apex',      record_type: 'A',     host: '@',        value: '75.2.60.5' }
+    : { type: 'subdomain', record_type: 'CNAME', host: parts[0],   value: `${netlifySubdomain}.netlify.app` };
+}
+
+// ── Build 019: Transactional Email (Resend) ────────────────────────────────
+
+export type EmailTemplateType   = 'welcome' | 'waitlist_confirmation' | 'waitlist_approval';
+export type EmailTemplateStatus = 'active' | 'disabled';
+export type EmailConnectionStatus = 'connected' | 'disconnected';
+
+export interface EmailTemplate {
+  id:             string;
+  project_id:     string;
+  template_type:  EmailTemplateType;
+  subject:        string;
+  greeting:       string | null;
+  body:           string;
+  cta_text:       string | null;
+  cta_url:        string | null;
+  status:         EmailTemplateStatus;
+  generated_at:   string | null;
+  updated_at:     string;
+}
+
+export interface EmailSenderConfig {
+  resend_from_name:  string | null;
+  resend_from_email: string | null;
+}
+
+// ── Build 020: Billing / Monetization (Stripe) ────────────────────────────
+
+export type BillingModel = 'subscription' | 'one_time';
+export type StripeMode   = 'test' | 'live' | 'unknown';
+
+export interface BillingConfig {
+  billing_enabled:          boolean;
+  billing_model:            BillingModel | null;
+  stripe_publishable_key:   string | null;   // safe to expose to client
+  // stripe_secret_key: NOT in DB — Netlify env var only
+  // stripe_webhook_secret: in DB but server-side only
+}
+
+export interface BillingPlan {
+  id:                   string;
+  project_id:           string;
+  plan_name:            string;
+  stripe_price_id:      string | null;
+  monthly_price_cents:  number | null;
+  features:             string | null;   // newline-separated; split on '\n' for display
+  sort_order:           number;
+  created_at:           string;
+  updated_at:           string;
+}
+
+export function deriveStripeMode(publishableKey: string | null): StripeMode {
+  if (!publishableKey)                        return 'unknown';
+  if (publishableKey.startsWith('pk_test_')) return 'test';
+  if (publishableKey.startsWith('pk_live_')) return 'live';
+  return 'unknown';
+}
+
+// ── Build 021: GitHub Integration UI ──────────────────────────────────────
+
+export type NetlifyDeployStatus = 'pending' | 'deploying' | 'deployed' | 'failed';
+
+export interface GithubConfig {
+  github_username:        string | null;
+  github_repo:            string | null;
+  github_default_branch:  string;
+  github_connected_at:    string | null;
+  // github_access_token is never returned to the client
+}
+
+export interface DeployHistoryRow {
+  id:                     string;
+  project_id:             string;
+  feature_id:             string | null;
+  commit_sha:             string;
+  commit_message:         string;
+  branch:                 string | null;
+  pushed_at:              string;
+  netlify_deploy_id:      string | null;
+  netlify_deploy_status:  NetlifyDeployStatus | null;
+}
+
+export function shortSha(sha: string): string {
+  return sha.slice(0, 7);
+}
+
+export function deriveGithubRepoUrl(config: GithubConfig): string | null {
+  if (!config.github_username || !config.github_repo) return null;
+  return `https://github.com/${config.github_username}/${config.github_repo}`;
+}
+
+export function deriveCommitUrl(config: GithubConfig, sha: string): string | null {
+  const repoUrl = deriveGithubRepoUrl(config);
+  if (!repoUrl) return null;
+  return `${repoUrl}/commit/${sha}`;
+}
+
+// ── Build 023: Token Usage / Cost Dashboard ───────────────────────────────
+
+export interface TokenUsageRow {
+  project_id:         string;
+  feature_id:         string;
+  feature_name:       string;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens:       number;
+  models_used:        string;    // comma-separated, e.g. "claude-haiku-4-5-20251001,claude-sonnet-4-6"
+  last_generated_at:  string;
+  generation_count:   number;
+}
+
+export interface TokenUsageByModel {
+  project_id:          string;
+  model:               string;
+  total_input_tokens:  number;
+  total_output_tokens: number;
+}
+
+export type BudgetStatus = 'ok' | 'warning' | 'over';
+
+/** Static pricing in USD per 1M tokens — update when Anthropic reprices */
+export const MODEL_PRICING_USD_PER_1M: Record<string, { input: number; output: number }> = {
+  'claude-opus-4-6':           { input: 15.00, output: 75.00 },
+  'claude-sonnet-4-6':         { input:  3.00, output: 15.00 },
+  'claude-haiku-4-5-20251001': { input:  0.80, output:  4.00 },
+};
+
+export function calculateCostUsd(model: string, inputTokens: number, outputTokens: number): number {
+  const pricing = MODEL_PRICING_USD_PER_1M[model] ?? { input: 3.00, output: 15.00 };
+  return (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
+}
+
+export function totalCostUsd(rows: TokenUsageByModel[]): number {
+  return rows.reduce((sum, row) =>
+    sum + calculateCostUsd(row.model, row.total_input_tokens, row.total_output_tokens), 0);
+}
+
+export function deriveBudgetStatus(currentCostCents: number, budgetCents: number | null): BudgetStatus {
+  if (!budgetCents) return 'ok';
+  const ratio = currentCostCents / budgetCents;
+  if (ratio >= 1.0) return 'over';
+  if (ratio >= 0.8) return 'warning';
+  return 'ok';
+}
+
+// ── Build 028: AdSense Monetization Scaffold ──────────────────────────────
+
+export type AdSenseStatus    = 'not_configured' | 'pending_review' | 'active';
+export type AdPlacementSlot  = 'leaderboard' | 'rectangle' | 'footer';
+
+export interface AdSenseConfig {
+  id:                       string;
+  project_id:               string;
+  publisher_id:             string | null;
+  leaderboard_ad_unit_id:   string | null;
+  rectangle_ad_unit_id:     string | null;
+  footer_ad_unit_id:        string | null;
+  status:                   AdSenseStatus;
+  created_at:               string;
+  updated_at:               string;
+}
+
+export interface AdPlacement {
+  slot:        AdPlacementSlot;
+  columnName:  keyof Pick<AdSenseConfig, 'leaderboard_ad_unit_id' | 'rectangle_ad_unit_id' | 'footer_ad_unit_id'>;
+  dimensions:  { desktop: string; mobile: string };
+  position:    string;
+}
+
+export const AD_PLACEMENTS: AdPlacement[] = [
+  { slot: 'leaderboard', columnName: 'leaderboard_ad_unit_id', dimensions: { desktop: '728×90',  mobile: '320×50'  }, position: 'Below navigation bar, public screens only' },
+  { slot: 'rectangle',   columnName: 'rectangle_ad_unit_id',   dimensions: { desktop: '336×280', mobile: '300×250' }, position: 'After first content section, public screens only' },
+  { slot: 'footer',      columnName: 'footer_ad_unit_id',      dimensions: { desktop: '728×90',  mobile: '320×50'  }, position: 'Above page footer, public screens only' },
+];
+
+export function isAdSenseReady(config: AdSenseConfig | null): boolean {
+  return config?.status === 'active' && !!config.publisher_id;
+}
+
+// ── Build 047: Distribute Path ────────────────────────────────────────────────
+
+export type ProjectType              = 'app' | 'website' | 'both';
+export type LeadStatus               = 'prospect' | 'approved' | 'dismissed' | 'contacted' | 'replied' | 'bounced' | 'converted';
+export type LeadSource               = 'web_research' | 'csv_import' | 'manual';
+export type LeadConfidence           = 'high' | 'medium' | 'low';
+export type OutreachGoal             = 'book_call' | 'get_reply' | 'visit_website';
+export type OutreachEmailStatus      = 'draft' | 'approved' | 'scheduled' | 'sent' | 'replied' | 'bounced' | 'failed';
+export type EnrollmentStatus         = 'pending_approval' | 'active' | 'paused' | 'completed' | 'replied' | 'bounced';
+
+export interface BusinessResearch {
+  id:                          string;
+  project_id:                  string;
+  competitors:                 Array<{
+    name:        string;
+    url:         string;
+    positioning: string;
+    strengths:   string[];
+    weaknesses:  string[];
+  }>;
+  positioning_recommendation:  string | null;
+  key_messages:                string[];
+  target_customer_profile:     string | null;
+  copy_seeds:                  {
+    hero_headline?:     string;
+    hero_subheadline?:  string;
+    services_intro?:    string;
+    about_intro?:       string;
+  };
+  approved_at:                 string | null;
+  approved_by:                 string | null;
+  created_at:                  string;
+  updated_at:                  string;
+}
+
+export interface Lead {
+  id:             string;
+  project_id:     string;
+  company_name:   string;
+  industry:       string | null;
+  location:       string | null;
+  website_url:    string | null;
+  contact_name:   string | null;
+  contact_email:  string | null;
+  contact_phone:  string | null;
+  research_notes: string | null;
+  confidence:     LeadConfidence;
+  status:         LeadStatus;
+  source:         LeadSource;
+  created_at:     string;
+  updated_at:     string;
+}
+
+export interface OutreachSequence {
+  id:         string;
+  project_id: string;
+  name:       string;
+  goal:       OutreachGoal;
+  is_active:  boolean;
+  created_at: string;
+}
+
+export interface OutreachStep {
+  id:               string;
+  sequence_id:      string;
+  step_number:      number;
+  subject_template: string;
+  body_template:    string;
+  delay_days:       number;
+  purpose_note:     string | null;
+}
+
+export interface LeadSequenceEnrollment {
+  id:           string;
+  lead_id:      string;
+  sequence_id:  string;
+  current_step: number;
+  status:       EnrollmentStatus;
+  enrolled_at:  string;
+  completed_at: string | null;
+}
+
+export interface OutreachEmail {
+  id:                   string;
+  enrollment_id:        string;
+  step_id:              string;
+  lead_id:              string;
+  project_id:           string;
+  subject:              string;
+  body:                 string;
+  gmail_message_id:     string | null;
+  gmail_thread_id:      string | null;
+  status:               OutreachEmailStatus;
+  limited_data_warning: boolean;
+  scheduled_for:        string | null;
+  sent_at:              string | null;
+  replied_at:           string | null;
+  created_at:           string;
+}
+
+/** Display config for lead status pills */
+export const LEAD_STATUS_STYLES: Record<LeadStatus, { bg: string; color: string }> = {
+  prospect:  { bg: '#f0f0f5', color: 'var(--color-text-muted)' },
+  approved:  { bg: '#dcfce7', color: '#166534' },
+  dismissed: { bg: '#fef2f2', color: '#dc2626' },
+  contacted: { bg: '#dbeafe', color: '#1e40af' },
+  replied:   { bg: '#ccfbf1', color: '#065f46' },
+  bounced:   { bg: '#fff7ed', color: '#c2410c' },
+  converted: { bg: '#f3e8ff', color: '#6d28d9' },
+};
+
+/** Display config for outreach goal badges */
+export const OUTREACH_GOAL_STYLES: Record<OutreachGoal, { bg: string; color: string; label: string }> = {
+  book_call:    { bg: '#f3e8ff', color: '#6d28d9', label: 'Book a call' },
+  get_reply:    { bg: '#dbeafe', color: '#1e40af', label: 'Get a reply' },
+  visit_website:{ bg: '#dcfce7', color: '#166534', label: 'Visit site'  },
+};

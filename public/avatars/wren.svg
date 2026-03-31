@@ -1,0 +1,69 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="50" fill="#f59e0b"/>
+
+  <!-- Neck -->
+  <rect x="43" y="70" width="14" height="8" fill="#e0a878"/>
+
+  <!-- Clothing: casual with amber accent -->
+  <path d="M 25 78 L 25 95 L 75 95 L 75 78 Q 65 72 50 72 Q 35 72 25 78 Z" fill="#92400e"/>
+  <!-- Accent stripe -->
+  <rect x="48" y="78" width="4" height="17" fill="#f59e0b"/>
+
+  <!-- Face oval with gradient -->
+  <defs>
+    <linearGradient id="wren-skin" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0c495;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#e0a878;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c88b5e;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="url(#wren-skin)"/>
+
+  <!-- Ears -->
+  <ellipse cx="26" cy="50" rx="4" ry="7" fill="#e0a878"/>
+  <ellipse cx="74" cy="50" rx="4" ry="7" fill="#e0a878"/>
+
+  <!-- Small earring on right ear (visible at sm+ sizes) -->
+  <circle cx="76" cy="50" r="1.5" fill="#f59e0b"/>
+
+  <!-- Hair: auburn wavy, WIDE flowing silhouette -->
+  <path d="M 20 48 Q 15 40 18 28 Q 22 15 35 10 Q 45 8 50 8 Q 55 8 65 10 Q 78 15 82 28 Q 85 40 80 48 Q 75 52 70 54 Q 50 56 30 54 Q 25 52 20 48 Z" fill="#8b3a10"/>
+
+  <!-- Hair mid-tone and highlights -->
+  <path d="M 25 30 Q 28 20 35 15 Q 42 12 50 11 Q 58 12 65 15 Q 72 20 75 30 Q 72 40 68 48 Q 50 50 32 48 Q 28 40 25 30 Z" fill="#a0521e"/>
+  <path d="M 32 22 Q 38 18 45 16 Q 50 15 55 16 Q 62 18 68 22 Q 65 30 60 38 Q 50 40 40 38 Q 35 30 32 22 Z" fill="#c47a3a"/>
+
+  <!-- Wavy texture detail -->
+  <path d="M 22 42 Q 25 44 30 43" stroke="#8b3a10" stroke-width="0.5" fill="none" opacity="0.5"/>
+  <path d="M 70 43 Q 75 44 78 42" stroke="#8b3a10" stroke-width="0.5" fill="none" opacity="0.5"/>
+
+  <!-- Eyebrows: raised, curious -->
+  <path d="M 36 44 Q 41 42 45 44" stroke="#8b3a10" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 55 44 Q 59 42 64 44" stroke="#8b3a10" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes: wide, curious -->
+  <g>
+    <!-- Left eye -->
+    <ellipse cx="41" cy="51" rx="3.8" ry="4.2" fill="#fff"/>
+    <circle cx="41" cy="51" r="2.2" fill="#5a3010"/>
+    <circle cx="41" cy="50.5" r="0.9" fill="#1a1a1a"/>
+    <circle cx="42.2" cy="49.8" r="0.6" fill="#fff"/>
+    <!-- Right eye -->
+    <ellipse cx="59" cy="51" rx="3.8" ry="4.2" fill="#fff"/>
+    <circle cx="59" cy="51" r="2.2" fill="#5a3010"/>
+    <circle cx="59" cy="50.5" r="0.9" fill="#1a1a1a"/>
+    <circle cx="60.2" cy="49.8" r="0.6" fill="#fff"/>
+  </g>
+
+  <!-- Nose -->
+  <path d="M 50 51 Q 50 55 50 59" stroke="#c88b5e" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <path d="M 48 59 Q 49 60 50 60 Q 51 60 52 59" stroke="#c88b5e" stroke-width="1" fill="none"/>
+
+  <!-- Mouth: cheerful smile -->
+  <path d="M 42 68 Q 50 71 58 68" stroke="#c88b5e" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 42 68 Q 50 69.5 58 68" stroke="#f0c495" stroke-width="0.8" fill="none" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Outline -->
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="none" stroke="#d97706" stroke-width="0.5" opacity="0.5"/>
+</svg>

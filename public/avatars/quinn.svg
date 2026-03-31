@@ -1,0 +1,61 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="50" fill="#7c3aed"/>
+
+  <!-- Neck -->
+  <rect x="43" y="70" width="14" height="8" fill="#e8c4a0"/>
+
+  <!-- Clothing: professional violet -->
+  <path d="M 28 78 L 28 95 L 72 95 L 72 78 Q 62 72 50 72 Q 38 72 28 78 Z" fill="#5b21b6"/>
+
+  <!-- Face oval with gradient -->
+  <defs>
+    <linearGradient id="quinn-skin" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#f5d8b8;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#e8c4a0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d4a87a;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="url(#quinn-skin)"/>
+
+  <!-- Ears -->
+  <ellipse cx="27" cy="50" rx="4" ry="7" fill="#e8c4a0"/>
+  <ellipse cx="73" cy="50" rx="4" ry="7" fill="#e8c4a0"/>
+
+  <!-- Hair: neat polished shorter cut, symmetric -->
+  <path d="M 30 45 Q 28 35 32 22 Q 38 12 50 10 Q 62 12 68 22 Q 72 35 70 45 Q 68 50 65 52 Q 50 54 35 52 Q 32 50 30 45 Z" fill="#1a0a2a"/>
+  <!-- Hair mid-tone (creates polish and volume) -->
+  <path d="M 35 28 Q 40 20 50 18 Q 60 20 65 28 Q 63 38 60 46 Q 50 48 40 46 Q 37 38 35 28 Z" fill="#2a1040"/>
+  <!-- Side sections (neat framing) -->
+  <path d="M 32 40 Q 35 35 38 45 Q 35 48 32 47 Z" fill="#2a1040"/>
+  <path d="M 68 40 Q 65 35 62 45 Q 65 48 68 47 Z" fill="#2a1040"/>
+
+  <!-- Eyebrows: alert, well-groomed -->
+  <path d="M 37 46 Q 42 44 46 46" stroke="#1a0a2a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 54 46 Q 58 44 63 46" stroke="#1a0a2a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes: alert, wide, professional -->
+  <g>
+    <!-- Left eye -->
+    <ellipse cx="41" cy="51" rx="3.6" ry="4.2" fill="#fff"/>
+    <circle cx="41" cy="51" r="2.2" fill="#2a1050"/>
+    <circle cx="41" cy="50.4" r="0.9" fill="#0a0020"/>
+    <circle cx="42.3" cy="49.6" r="0.6" fill="#fff"/>
+    <!-- Right eye -->
+    <ellipse cx="59" cy="51" rx="3.6" ry="4.2" fill="#fff"/>
+    <circle cx="59" cy="51" r="2.2" fill="#2a1050"/>
+    <circle cx="59" cy="50.4" r="0.9" fill="#0a0020"/>
+    <circle cx="60.3" cy="49.6" r="0.6" fill="#fff"/>
+  </g>
+
+  <!-- Nose -->
+  <path d="M 50 51 Q 50 55 50 59" stroke="#d4a87a" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <path d="M 48 59 Q 49 60 50 60 Q 51 60 52 59" stroke="#d4a87a" stroke-width="1" fill="none"/>
+
+  <!-- Mouth: confident smile -->
+  <path d="M 42 67 Q 50 70 58 67" stroke="#d4a87a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 42 67 Q 50 68.5 58 67" stroke="#f5d8b8" stroke-width="0.8" fill="none" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Outline -->
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="none" stroke="#6d28d9" stroke-width="0.5" opacity="0.5"/>
+</svg>

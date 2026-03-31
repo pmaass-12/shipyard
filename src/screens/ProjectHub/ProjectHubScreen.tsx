@@ -19,10 +19,12 @@ import { updateProject, pushToProduction } from '@/api/projects';
 import type { Project, ProjectHubStats, HumanTask, ProjectColor, ProjectPhase } from '@/types/db';
 import DailyBriefingCard from '@/components/DailyBriefingCard';
 import PmChatPanel from '@/components/PmChatPanel';
-import TeamAvatar from '@/components/TeamAvatar';
+import ReeveGreetingCard from '@/components/ReeveGreetingCard';
+import { Avatar } from '@/components/Avatar';
 import ProjectHealthBadge from '@/components/ProjectHealthBadge';
 import RegressionCard from '@/components/RegressionCard';
 import HealthReportCard from '@/components/HealthReportCard';
+import { isFirstRunMode, completeFirstRun } from '@/api/firstRun';
 
 // ── Phase badge ────────────────────────────────────────────────────────────
 
@@ -491,10 +493,11 @@ export default function ProjectHubScreen() {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate          = useNavigate();
 
-  const [project, setProject]   = useState<Project | null>(null);
-  const [stats,   setStats]     = useState<ProjectHubStats | null>(null);
-  const [tasks,   setTasks]     = useState<HumanTask[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [project,     setProject]     = useState<Project | null>(null);
+  const [stats,       setStats]       = useState<ProjectHubStats | null>(null);
+  const [tasks,       setTasks]       = useState<HumanTask[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [isFirstRun,  setIsFirstRun]  = useState(false);
 
   // ── Inline edit state ────────────────────────────────────────────────────
   const [editingField,    setEditingField]    = useState<string | null>(null);
@@ -532,6 +535,8 @@ export default function ProjectHubScreen() {
       setProject(p);
       setStats(s);
       setTasks(t);
+      // Detect first-run mode (Build 044)
+      setIsFirstRun(isFirstRunMode(p, s.feature_count, s.screen_count));
     } catch (err) {
       console.error(err);
     } finally {
@@ -540,6 +545,17 @@ export default function ProjectHubScreen() {
   }
 
   useEffect(() => { load(); }, [projectId]);
+
+  // Build 044: handle first-run completion
+  const handleFirstRunComplete = async () => {
+    setIsFirstRun(false);
+    try {
+      await completeFirstRun(projectId!);
+    } catch (err) {
+      console.warn('completeFirstRun error:', err);
+    }
+    load(); // Refresh stats so features/screens appear
+  };
 
   if (loading) {
     return (
@@ -708,27 +724,27 @@ export default function ProjectHubScreen() {
           {/* Project Health badge — Build 042 */}
           <ProjectHealthBadge projectId={project.id} />
 
-          {/* Chat with Morgan — PM Chat trigger */}
+          {/* Chat with Reeve — PM Chat trigger */}
           <button
             data-testid="pm-chat-open-btn"
             onClick={() => setShowPmChat(true)}
-            title="Chat with Morgan, your AI PM"
+            title="Chat with Reeve, your project manager"
             style={{
               marginLeft: 'auto',
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '5px 12px', borderRadius: 20,
-              border: '1px solid #CBD5E1', backgroundColor: '#F8FAFC',
-              cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#475569',
+              border: '1px solid #C7D2FE', backgroundColor: '#EEF2FF',
+              cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#4338CA',
             }}
           >
-            <TeamAvatar member="morgan" size="xs" />
-            Chat with Morgan
+            <Avatar member="reeve" size="xs" />
+            Chat with Reeve
           </button>
         </div>
       </div>
 
-      {/* ── Human tasks amber callout ── */}
-      {tasks.length > 0 && (
+      {/* ── Human tasks amber callout (suppressed in first-run) ── */}
+      {tasks.length > 0 && !isFirstRun && (
         <div
           data-testid="human-tasks-callout"
           style={{
@@ -749,8 +765,18 @@ export default function ProjectHubScreen() {
         </div>
       )}
 
-      {/* ── Import entry point (Build 041) — shown when project has no screens yet ── */}
-      {stats.screen_count === 0 && (
+      {/* ── First-Run Greeting Card — Build 044 ── */}
+      {isFirstRun && (
+        <ReeveGreetingCard
+          projectId={project.id}
+          projectName={project.name}
+          description={project.description}
+          onComplete={handleFirstRunComplete}
+        />
+      )}
+
+      {/* ── Import entry point (Build 041) — shown when no screens and NOT first-run ── */}
+      {stats.screen_count === 0 && !isFirstRun && (
         <div style={{
           display:         'flex',
           alignItems:      'center',
@@ -789,6 +815,90 @@ export default function ProjectHubScreen() {
           </Link>
         </div>
       )}
+
+      {/* ── First-run empty state: No features ── */}
+      {isFirstRun && stats.feature_count === 0 && (
+        <div
+          data-testid="first-run-no-features"
+          style={{
+            padding:         '14px 16px',
+            borderRadius:    10,
+            marginBottom:    20,
+            backgroundColor: '#EEF2FF',
+            border:          '1px solid #C7D2FE',
+            fontSize:        14,
+            color:           '#4338CA',
+            fontWeight:      500,
+          }}
+        >
+          <button
+            onClick={() => setShowPmChat(true)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#4338CA', fontSize: 14, fontWeight: 600, padding: 0,
+              textDecoration: 'underline',
+            }}
+          >
+            Tell Reeve what you want to build to get started →
+          </button>
+        </div>
+      )}
+
+      {/* ── First-run empty state: No screens ── */}
+      {isFirstRun && stats.screen_count === 0 && (
+        <div
+          data-testid="first-run-no-screens"
+          style={{
+            padding:         '10px 16px',
+            borderRadius:    10,
+            marginBottom:    16,
+            backgroundColor: 'var(--color-surface)',
+            border:          '1px solid var(--color-border)',
+            fontSize:        13,
+            color:           'var(--color-text-muted)',
+          }}
+        >
+          Reeve will create your first screen automatically when you describe your first feature.
+        </div>
+      )}
+
+      {/* ── Team row — Build 046 ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 16,
+        padding: '12px 16px', marginBottom: 20,
+        border: '1px solid var(--color-border)', borderRadius: 10,
+        backgroundColor: 'var(--color-surface)',
+      }}>
+        <span style={{ fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 600, marginRight: 4 }}>
+          Your team
+        </span>
+        {/* Reeve — project manager, shown first */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <button
+            data-testid="team-member-reeve"
+            onClick={() => setShowPmChat(true)}
+            title="Chat with Reeve"
+            style={{
+              background: 'none', border: '2px solid #4338CA', borderRadius: '50%',
+              padding: 0, cursor: 'pointer', display: 'flex',
+            }}
+          >
+            <Avatar member="reeve" size="md" />
+          </button>
+          <span style={{ fontSize: 10, color: '#4338CA', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            Your PM
+          </span>
+        </div>
+        {/* Rest of the team */}
+        {(['morgan', 'wren', 'sage', 'finn', 'quinn'] as const).map(member => (
+          <div key={member} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <Avatar member={member} size="md" />
+            <span style={{ fontSize: 10, color: 'var(--color-text-muted)', textTransform: 'capitalize' }}>
+              {member}
+            </span>
+          </div>
+        ))}
+      </div>
 
       {/* ── Daily Briefing — Build 040 ── */}
       <div style={{ marginBottom: 20 }}>

@@ -91,12 +91,12 @@ export async function insertUserPmMessage(
 }
 
 /**
- * Call the `generate-pm-chat-response` Edge Function.
+ * Call the `generate-reeve-chat-response` Edge Function (Build 046 rename).
  * The user message must be inserted before calling this.
  * Returns the assistant's PmChatMessage row plus an optional save_suggestion
- * when Morgan identifies a durable memory-worthy fact in her response.
+ * when Reeve identifies a durable memory-worthy fact in his response.
  */
-export async function generatePmChatResponse(
+export async function generateReeveChatResponse(
   projectId: string,
   threadId:  string,
   message:   string
@@ -104,7 +104,7 @@ export async function generatePmChatResponse(
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Not authenticated');
 
-  const res = await fetch('/functions/v1/generate-pm-chat-response', {
+  const res = await fetch('/functions/v1/generate-reeve-chat-response', {
     method:  'POST',
     headers: {
       'Content-Type':  'application/json',
@@ -115,7 +115,7 @@ export async function generatePmChatResponse(
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`PM chat generation failed (${res.status}): ${body}`);
+    throw new Error(`Reeve chat generation failed (${res.status}): ${body}`);
   }
 
   const json = await res.json();
@@ -123,6 +123,43 @@ export async function generatePmChatResponse(
     message:         json.message         as PmChatMessage,
     save_suggestion: json.save_suggestion ?? null,
   };
+}
+
+// ── Morgan Design Response ─────────────────────────────────────────────────
+
+export interface MorganDesignResponseResult {
+  response_text: string;
+  message_id:    string;
+}
+
+/**
+ * Call the `generate-morgan-design-response` Edge Function (Build 046).
+ * Used by the Feature Workflow Design tab chat.
+ * Context is feature-scoped (not thread-scoped like Reeve).
+ * Returns the response text and inserted message ID.
+ */
+export async function generateMorganDesignResponse(
+  featureId:   string,
+  userMessage: string
+): Promise<MorganDesignResponseResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Not authenticated');
+
+  const res = await fetch('/functions/v1/generate-morgan-design-response', {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ feature_id: featureId, user_message: userMessage }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Morgan design response failed (${res.status}): ${body}`);
+  }
+
+  return res.json() as Promise<MorganDesignResponseResult>;
 }
 
 // ── PM Chat — Realtime ─────────────────────────────────────────────────────

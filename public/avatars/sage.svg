@@ -1,0 +1,74 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="50" fill="#65a30d"/>
+
+  <!-- Neck -->
+  <rect x="43" y="70" width="14" height="8" fill="#9a6845"/>
+
+  <!-- Clothing: sage-colored shirt -->
+  <path d="M 30 78 L 30 95 L 70 95 L 70 78 Q 60 72 50 72 Q 40 72 30 78 Z" fill="#365314"/>
+
+  <!-- Face oval with gradient -->
+  <defs>
+    <linearGradient id="sage-skin" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#b8845a;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#9a6845;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7d5234;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="url(#sage-skin)"/>
+
+  <!-- Ears (partially visible) -->
+  <ellipse cx="27" cy="50" rx="3.5" ry="6" fill="#9a6845"/>
+  <ellipse cx="73" cy="50" rx="3.5" ry="6" fill="#9a6845"/>
+
+  <!-- Hair: close-cropped natural texture, very dark -->
+  <ellipse cx="50" cy="28" rx="22" ry="18" fill="#1a1a1a"/>
+  <!-- Hair texture mid-tone -->
+  <circle cx="40" cy="32" r="2.5" fill="#2a2a2a"/>
+  <circle cx="45" cy="28" r="2" fill="#2a2a2a"/>
+  <circle cx="55" cy="28" r="2" fill="#2a2a2a"/>
+  <circle cx="60" cy="32" r="2.5" fill="#2a2a2a"/>
+  <circle cx="50" cy="24" r="2" fill="#2a2a2a"/>
+  <circle cx="35" cy="38" r="1.5" fill="#2a2a2a"/>
+  <circle cx="65" cy="38" r="1.5" fill="#2a2a2a"/>
+
+  <!-- Eyebrows -->
+  <path d="M 38 46 Q 42 45 46 46" stroke="#1a1a1a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 54 46 Q 58 45 62 46" stroke="#1a1a1a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes (behind glasses) -->
+  <g>
+    <!-- Left eye background -->
+    <ellipse cx="41" cy="51" rx="3.5" ry="4" fill="#fff"/>
+    <circle cx="41" cy="51" r="2" fill="#2a3a20"/>
+    <circle cx="41" cy="50.5" r="0.8" fill="#1a1a1a"/>
+    <circle cx="42" cy="50" r="0.5" fill="#fff"/>
+    <!-- Right eye background -->
+    <ellipse cx="59" cy="51" rx="3.5" ry="4" fill="#fff"/>
+    <circle cx="59" cy="51" r="2" fill="#2a3a20"/>
+    <circle cx="59" cy="50.5" r="0.8" fill="#1a1a1a"/>
+    <circle cx="60" cy="50" r="0.5" fill="#fff"/>
+  </g>
+
+  <!-- GLASSES: rectangular thin frames (KEY differentiator) -->
+  <g>
+    <!-- Left frame -->
+    <rect x="33" y="48" width="12" height="8" rx="2" fill="none" stroke="#374151" stroke-width="1.5"/>
+    <!-- Right frame -->
+    <rect x="55" y="48" width="12" height="8" rx="2" fill="none" stroke="#374151" stroke-width="1.5"/>
+    <!-- Bridge -->
+    <line x1="45" y1="52" x2="55" y2="52" stroke="#374151" stroke-width="1"/>
+  </g>
+
+  <!-- Nose -->
+  <path d="M 50 51 Q 50 55 50 59" stroke="#7d5234" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <path d="M 48 59 Q 49 60 50 60 Q 51 60 52 59" stroke="#7d5234" stroke-width="1" fill="none"/>
+
+  <!-- Mouth: slight smile -->
+  <path d="M 42 67 Q 50 69 58 67" stroke="#7d5234" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 42 67 Q 50 68 58 67" stroke="#b8845a" stroke-width="0.7" fill="none" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- Outline -->
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="none" stroke="#4d7c0f" stroke-width="0.5" opacity="0.5"/>
+</svg>

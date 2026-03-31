@@ -5,7 +5,7 @@
  * imported wherever team member identity, avatars, or attribution is needed.
  */
 
-export type TeamMemberSlug = 'morgan' | 'wren' | 'sage' | 'finn' | 'quinn';
+export type TeamMemberSlug = 'reeve' | 'morgan' | 'wren' | 'sage' | 'finn' | 'quinn';
 
 export interface TeamMember {
   slug:        TeamMemberSlug;
@@ -17,6 +17,14 @@ export interface TeamMember {
 }
 
 export const TEAM: Record<TeamMemberSlug, TeamMember> = {
+  reeve: {
+    slug:        'reeve',
+    name:        'Reeve',
+    role:        'Project Manager',
+    description: 'Holds the full picture. Your primary contact for project status, decisions, and what to do next.',
+    color:       '#4338ca',   // indigo-700
+    initials:    'R',
+  },
   morgan: {
     slug:        'morgan',
     name:        'Morgan',

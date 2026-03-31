@@ -16,7 +16,28 @@ import ChangeRequestsScreen      from '@/screens/ChangeRequests/ChangeRequestsSc
 import ScreensScreen             from '@/screens/Screens/ScreensScreen';         // Build 015
 import FeatureWorkflowScreen     from '@/screens/Features/FeatureWorkflowScreen'; // Build 016
 import HumanTasksScreen          from '@/screens/HumanTasks/HumanTasksScreen';    // Build 022
-import ImportFlowScreen          from '@/screens/Import/ImportFlowScreen';          // Build 041
+import ImportFlowScreen          from '@/screens/Import/ImportFlowScreen';        // Build 041
+import AnalyticsScreen           from '@/screens/Analytics/AnalyticsScreen';      // Build 017
+import DomainScreen              from '@/screens/Domain/DomainScreen';            // Build 018
+import EmailScreen               from '@/screens/Email/EmailScreen';              // Build 019
+import BillingScreen             from '@/screens/Billing/BillingScreen';          // Build 020
+import GithubScreen              from '@/screens/Github/GithubScreen';            // Build 021
+import UsageScreen               from '@/screens/Usage/UsageScreen';              // Build 023
+import BugsScreen                from '@/screens/Bugs/BugsScreen';                // Build 025
+import ArtifactsScreen           from '@/screens/Artifacts/ArtifactsScreen';      // Build 026
+import AdSenseScreen             from '@/screens/AdSense/AdSenseScreen';          // Build 028
+import PromoScreen               from '@/screens/Promo/PromoScreen';              // Build 029
+import DocumentsScreen           from '@/screens/Documents/DocumentsScreen';      // Build 030
+import ChangesScreen             from '@/screens/Changes/ChangesScreen';          // Build 035
+import SetupWizardScreen         from '@/screens/Setup/SetupWizardScreen';        // Build 032
+import DeploySetupScreen         from '@/screens/Deploy/DeploySetupScreen';       // Build 038
+import ProjectTypeChoiceScreen   from '@/screens/Setup/ProjectTypeChoiceScreen';  // Build 047
+import DistributeWizardScreen    from '@/screens/Distribute/DistributeWizardScreen'; // Build 047
+import DistributeHubScreen       from '@/screens/Distribute/DistributeHubScreen';    // Build 047
+import DistributeResearchScreen  from '@/screens/Distribute/DistributeResearchScreen'; // Build 047
+import DistributeLeadsScreen     from '@/screens/Distribute/DistributeLeadsScreen';    // Build 047
+import DistributeOutreachScreen  from '@/screens/Distribute/DistributeOutreachScreen'; // Build 047
+import MobileChatView            from '@/screens/Mobile/MobileChatView';               // Build 048
 
 // ── App ──────────────────────────────────────────────────────────────────
 export default function App() {
@@ -36,15 +57,34 @@ export default function App() {
 
           {/* All routes below require an active Supabase session */}
           <Route element={<AuthGuard />}>
+            {/* Build 048: Mobile chat-first — full-screen Reeve thread, no sidebar */}
+            <Route path="/mobile" element={<MobileChatView />} />
+
             <Route path="/" element={<Navigate to="/projects" replace />} />
             <Route path="/projects" element={<ProjectsListScreen />} />
             <Route path="/projects/:id/setup" element={<SetupScreen />} />
+
+            {/* Build 047: Project type choice — shown before Build or Distribute wizard */}
+            <Route path="/projects/:id/setup/wizard" element={<ProjectTypeChoiceScreen />} />
+
+            {/* Build 032: Setup Wizard — Full Redesign (Build path) */}
+            <Route path="/projects/:id/setup/build-wizard" element={<SetupWizardScreen />} />
+
+            {/* Build 047: Distribute path */}
+            <Route path="/projects/:id/distribute/wizard"   element={<DistributeWizardScreen />} />
+            <Route path="/projects/:id/distribute"          element={<DistributeHubScreen />} />
+            <Route path="/projects/:id/distribute/research" element={<DistributeResearchScreen />} />
+            <Route path="/projects/:id/distribute/leads"    element={<DistributeLeadsScreen />} />
+            <Route path="/projects/:id/distribute/outreach" element={<DistributeOutreachScreen />} />
 
             {/* Build 014: Project Hub — main landing page */}
             <Route path="/projects/:id" element={<ProjectHubScreen />} />
 
             {/* Build 012: Change Requests — global project view */}
             <Route path="/projects/:id/change-requests" element={<ChangeRequestsScreen />} />
+
+            {/* Build 035: Changes (replaces Build 012) */}
+            <Route path="/projects/:id/changes" element={<ChangesScreen />} />
 
             {/* Build 015: Screens & Sitemap Builder */}
             <Route path="/projects/:id/screens" element={<ScreensScreen />} />
@@ -64,6 +104,42 @@ export default function App() {
 
             {/* Build 010: SEO / AEO Settings */}
             <Route path="/projects/:id/seo" element={<SeoScreen />} />
+
+            {/* Build 017: Analytics Dashboard */}
+            <Route path="/projects/:id/analytics" element={<AnalyticsScreen />} />
+
+            {/* Build 018: Custom Domain */}
+            <Route path="/projects/:id/domain" element={<DomainScreen />} />
+
+            {/* Build 019: Transactional Email (Resend) */}
+            <Route path="/projects/:id/email" element={<EmailScreen />} />
+
+            {/* Build 020: Billing / Monetization (Stripe) */}
+            <Route path="/projects/:id/billing" element={<BillingScreen />} />
+
+            {/* Build 021: GitHub Integration UI */}
+            <Route path="/projects/:id/github" element={<GithubScreen />} />
+
+            {/* Build 023: Token Usage / Cost Dashboard */}
+            <Route path="/projects/:id/usage" element={<UsageScreen />} />
+
+            {/* Build 025: Global Bugs View */}
+            <Route path="/projects/:id/bugs" element={<BugsScreen />} />
+
+            {/* Build 026: Artifacts Panel */}
+            <Route path="/projects/:id/artifacts" element={<ArtifactsScreen />} />
+
+            {/* Build 028: AdSense Monetization Scaffold */}
+            <Route path="/projects/:id/adsense" element={<AdSenseScreen />} />
+
+            {/* Build 029: Promo Page + Business Name */}
+            <Route path="/projects/:id/promo" element={<PromoScreen />} />
+
+            {/* Build 030: Supporting Documents */}
+            <Route path="/projects/:id/documents" element={<DocumentsScreen />} />
+
+            {/* Build 038: Deploy Setup Flow */}
+            <Route path="/projects/:id/deploy" element={<DeploySetupScreen />} />
 
             {/* Admin Console — gated by VITE_SHIPYARD_ADMIN env var at build time */}
             <Route path="/admin" element={<AdminScreen />} />

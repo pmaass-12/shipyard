@@ -8,13 +8,14 @@
 import type { TeamMemberSlug } from '@/lib/team';
 import { TEAM } from '@/lib/team';
 
-type AvatarSize = 'xs' | 'sm' | 'md' | 'lg';
+type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 const SIZE_PX: Record<AvatarSize, number> = {
   xs:  20,
   sm:  28,
   md:  36,
   lg:  48,
+  xl:  96,
 };
 
 const FONT_SIZE: Record<AvatarSize, number> = {
@@ -22,6 +23,7 @@ const FONT_SIZE: Record<AvatarSize, number> = {
   sm:  11,
   md:  13,
   lg:  17,
+  xl:  28,
 };
 
 interface TeamAvatarProps {

@@ -1,0 +1,67 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="50" fill="#0d9488"/>
+
+  <!-- Neck with hoodie -->
+  <rect x="43" y="70" width="14" height="8" fill="#d4a070"/>
+  <!-- Hoodie back -->
+  <ellipse cx="50" cy="72" rx="12" ry="5" fill="#134e4a"/>
+
+  <!-- Clothing: hoodie -->
+  <path d="M 25 78 L 25 95 L 75 95 L 75 78 Q 65 72 50 72 Q 35 72 25 78 Z" fill="#134e4a"/>
+  <!-- Hoodie highlight -->
+  <ellipse cx="50" cy="80" rx="18" ry="8" fill="#1a5e5a" opacity="0.6"/>
+
+  <!-- Face oval with gradient -->
+  <defs>
+    <linearGradient id="finn-skin" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8bc8a;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#d4a070;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#b8845a;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="url(#finn-skin)"/>
+
+  <!-- Ears (mostly covered by hair) -->
+  <ellipse cx="26" cy="48" rx="3" ry="5" fill="#d4a070" opacity="0.4"/>
+  <ellipse cx="74" cy="48" rx="3" ry="5" fill="#d4a070" opacity="0.4"/>
+
+  <!-- Hair: disheveled, tall asymmetric, dark with irregular silhouette -->
+  <!-- Main hair mass - rises above head, falls to one side -->
+  <path d="M 25 50 Q 22 40 25 25 Q 28 12 38 8 Q 45 6 50 6 Q 58 8 62 12 Q 70 20 72 35 Q 74 48 70 55 Q 65 58 60 59 Q 50 60 40 58 Q 30 56 25 50 Z" fill="#1a1a2a"/>
+
+  <!-- Hair mid-tone (creates depth and disheveled look) -->
+  <path d="M 30 45 Q 32 32 40 20 Q 48 12 55 10 Q 62 12 68 22 Q 70 35 68 48 Q 62 55 55 57 Q 45 58 38 56 Q 32 54 30 45 Z" fill="#252535"/>
+
+  <!-- Falling section to one side (right) -->
+  <path d="M 55 45 Q 65 42 72 48 Q 75 52 73 58 L 65 55 Q 62 51 55 52 Z" fill="#1a1a2a"/>
+
+  <!-- Eyebrows: intense, slightly furrowed -->
+  <path d="M 37 46 Q 41 44 45 45" stroke="#1a1a2a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 55 45 Q 59 44 63 46" stroke="#1a1a2a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes: intense, focused -->
+  <g>
+    <!-- Left eye -->
+    <ellipse cx="40" cy="51" rx="3.5" ry="4.2" fill="#fff"/>
+    <circle cx="40" cy="51" r="2.1" fill="#1a3040"/>
+    <circle cx="40" cy="50.5" r="0.9" fill="#0a1820"/>
+    <circle cx="41.2" cy="49.8" r="0.6" fill="#fff"/>
+    <!-- Right eye -->
+    <ellipse cx="60" cy="51" rx="3.5" ry="4.2" fill="#fff"/>
+    <circle cx="60" cy="51" r="2.1" fill="#1a3040"/>
+    <circle cx="60" cy="50.5" r="0.9" fill="#0a1820"/>
+    <circle cx="61.2" cy="49.8" r="0.6" fill="#fff"/>
+  </g>
+
+  <!-- Nose: slightly prominent -->
+  <path d="M 50 51 Q 50 55 50 59" stroke="#b8845a" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <path d="M 48 59 Q 49 60 50 60 Q 51 60 52 59" stroke="#b8845a" stroke-width="1" fill="none"/>
+
+  <!-- Mouth: slight tension, focused expression -->
+  <path d="M 42 68 Q 50 69.5 58 68" stroke="#b8845a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 44 68.5 Q 50 70 56 68.5" stroke="#e8bc8a" stroke-width="0.6" fill="none" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Outline -->
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="none" stroke="#0f766e" stroke-width="0.5" opacity="0.5"/>
+</svg>

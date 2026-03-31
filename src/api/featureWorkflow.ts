@@ -244,3 +244,23 @@ export function isDesignApproved(steps: FeatureStep[]): boolean {
 export function isPipelineComplete(steps: FeatureStep[]): boolean {
   return steps.length === 6 && steps.every(s => s.status === 'approved');
 }
+
+// ── Build 030: Auto-inject documents for Design tab context ─────────────────
+
+/**
+ * Build 030 — fetch auto-inject documents for Design tab context assembly.
+ * Called by the generate-design-step Edge Function (server-side).
+ * On the client side, this is used to display which documents are included.
+ */
+export async function getAutoInjectDocumentsForContext(
+  projectId: string
+): Promise<Array<{ id: string; name: string; category: string; extracted_text: string | null; summary_text: string | null }>> {
+  const { data, error } = await supabase
+    .from('project_documents')
+    .select('id, name, category, extracted_text, summary_text')
+    .eq('project_id', projectId)
+    .eq('auto_inject', true)
+    .not('extracted_text', 'is', null);
+  if (error) throw error;
+  return data ?? [];
+}

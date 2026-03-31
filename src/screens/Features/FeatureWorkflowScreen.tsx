@@ -31,12 +31,14 @@ import {
   approveStep,
   updateStepOutput,
   startStep,
-  sendChatMessage,
   getStepRenderState,
   indexStepsByName,
   isDesignApproved,
   isPipelineComplete,
 } from '@/api/featureWorkflow';
+import { generateMorganDesignResponse } from '@/api/namedTeam';
+import { Avatar } from '@/components/Avatar';
+import { TeamChatThread } from '@/components/TeamChatThread';
 import type {
   Feature,
   FeatureStep,
@@ -137,16 +139,20 @@ function ChatSidebar({
       className="flex flex-col h-full border-r border-gray-100 bg-gray-50/50"
     >
       <div className="px-4 py-3 border-b border-gray-100 bg-white">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Design Chat
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Avatar member="morgan" size="sm" />
+          <div>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1E293B' }}>Morgan</p>
+            <p style={{ margin: 0, fontSize: 10, color: '#94A3B8' }}>Product Manager · Design</p>
+          </div>
+        </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 && !isStreaming && (
           <p className="text-sm text-gray-400 text-center mt-8">
-            Chat with Claude to refine the feature spec.
+            Chat with Morgan to design this feature.
           </p>
         )}
         {messages.map(msg => (
@@ -196,7 +202,7 @@ function ChatSidebar({
             value={inputValue}
             onChange={e => onInputChange(e.target.value)}
             onKeyDown={handleKey}
-            placeholder={isLocked ? 'Design is approved — chat closed.' : 'Message Claude…'}
+            placeholder={isLocked ? 'Design is approved — chat closed.' : 'Message Morgan…'}
             disabled={isLocked || isStreaming}
             rows={2}
             className={[
@@ -230,20 +236,21 @@ function ChatSidebar({
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface OutputPanelProps {
-  step:           FeatureStep;
-  tasks:          HumanTask[];
-  outputDraft:    string;
-  onOutputChange: (v: string) => void;
-  onSaveOutput:   () => void;
-  onApprove:      () => void;
-  isApproving:    boolean;
-  isSaving:       boolean;
-  designApproved: boolean;
+  step:              FeatureStep;
+  tasks:             HumanTask[];
+  outputDraft:       string;
+  onOutputChange:    (v: string) => void;
+  onSaveOutput:      () => void;
+  onApprove:         () => void;
+  isApproving:       boolean;
+  isSaving:          boolean;
+  designApproved:    boolean;
+  showApproveHint?:  boolean;   // Build 044 — one-time hint above Approve button
 }
 
 function OutputPanel({
   step, tasks, outputDraft, onOutputChange,
-  onSaveOutput, onApprove, isApproving, isSaving, designApproved,
+  onSaveOutput, onApprove, isApproving, isSaving, designApproved, showApproveHint,
 }: OutputPanelProps) {
   const renderState = getStepRenderState(step);
   const isLocked    = renderState === 'locked';
@@ -281,6 +288,25 @@ function OutputPanel({
             >
               {isSaving ? 'Saving…' : 'Save draft'}
             </button>
+          )}
+
+          {/* One-time approve hint — Build 044 */}
+          {!isApproved && !isLocked && isDesign && showApproveHint && (
+            <div
+              data-testid="approve-hint"
+              style={{
+                fontSize:        11,
+                color:           '#6366F1',
+                backgroundColor: '#EEF2FF',
+                border:          '1px solid #C7D2FE',
+                borderRadius:    6,
+                padding:         '4px 10px',
+                maxWidth:        240,
+                lineHeight:      1.4,
+              }}
+            >
+              This is the one decision you need to make — everything else runs automatically.
+            </div>
           )}
 
           {/* Approve button */}
@@ -374,6 +400,7 @@ export default function FeatureWorkflowScreen() {
 
   // ── Tab navigation ────────────────────────────────────────────────────────
   const [activeStep, setActiveStep] = useState<number>(1);
+  const [isTeamTab, setIsTeamTab]   = useState(false);
 
   // ── Output drafts per step (step_number → draft string) ──────────────────
   const [outputDrafts, setOutputDrafts] = useState<Record<number, string>>({});
@@ -384,6 +411,16 @@ export default function FeatureWorkflowScreen() {
   const [chatInput,    setChatInput]    = useState('');
   const [isStreaming,  setIsStreaming]  = useState(false);
   const [streamBuffer, setStreamBuffer] = useState('');
+
+  // ── Build 044: Wren toast, pipeline popover, approve hint ─────────────────
+  const [showPipelinePopover, setShowPipelinePopover] = useState(false);
+  const [showWrenToast,       setShowWrenToast]       = useState(false);
+  const pipelineHintShownKey = 'shipyard_pipeline_hint_shown';
+  // One-time approve hint — shown for first feature where design hasn't been approved yet
+  const approveHintKey       = 'shipyard_pipeline_hint_shown'; // same localStorage key
+  const showApproveHint      = activeStep === 1 &&
+    !localStorage.getItem(approveHintKey) &&
+    steps.find(s => s.step_number === 1)?.status !== 'approved';
 
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -416,6 +453,32 @@ export default function FeatureWorkflowScreen() {
   }, [featureId, activeStep]);
 
   useEffect(() => { load(); }, [load]);
+
+  // ── Build 044: Wren toast when design step output appears ─────────────────
+  useEffect(() => {
+    if (!featureId) return;
+    const channel = supabase
+      .channel(`design-ready:${featureId}`)
+      .on(
+        'postgres_changes',
+        {
+          event:  'UPDATE',
+          schema: 'public',
+          table:  'feature_steps',
+          filter: `feature_id=eq.${featureId}`,
+        },
+        (payload) => {
+          const updated = payload.new as { step_number: number; output?: string | null };
+          // Step 1 (design) just got output — show Wren "Design is ready" toast
+          if (updated.step_number === 1 && updated.output) {
+            setShowWrenToast(true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [featureId]);
 
   // ── Re-load tasks when active step changes ────────────────────────────────
   useEffect(() => {
@@ -460,6 +523,11 @@ export default function FeatureWorkflowScreen() {
     try {
       if (activeStep === 1) {
         await approveDesign(activeStepRow.id, userId);
+        // Build 044: show one-time pipeline popover after first approve
+        if (!localStorage.getItem(pipelineHintShownKey)) {
+          setShowPipelinePopover(true);
+          localStorage.setItem(pipelineHintShownKey, 'true');
+        }
       } else {
         await approveStep(activeStepRow.id, userId);
       }
@@ -479,34 +547,59 @@ export default function FeatureWorkflowScreen() {
     setIsStreaming(true);
     setStreamBuffer('');
 
-    const sessionRes = await supabase.auth.getSession();
-    const token = sessionRes.data.session?.access_token ?? '';
+    // Optimistic user message
+    const optimisticUser: FeatureChatMessage = {
+      id:            `opt-user-${Date.now()}`,
+      feature_id:    featureId,
+      step_number:   1,
+      role:          'user',
+      content:       msg,
+      model:         null,
+      input_tokens:  null,
+      output_tokens: null,
+      created_at:    new Date().toISOString(),
+    };
+    setChatMessages(prev => [...prev, optimisticUser]);
 
     try {
-      await sendChatMessage(
-        featureId,
-        1,
-        msg,
-        token,
-        chunk => setStreamBuffer(prev => prev + chunk),
-        async fullResponse => {
-          setIsStreaming(false);
-          setStreamBuffer('');
-          // Reload thread to get persisted messages
-          const msgs = await getChatThread(featureId, 1);
-          setChatMessages(msgs);
-        }
-      );
+      // Call Morgan's design endpoint (Build 046)
+      await generateMorganDesignResponse(featureId, msg);
+      // Reload thread to get both user and assistant messages from DB
+      const msgs = await getChatThread(featureId, 1);
+      setChatMessages(msgs);
     } catch (err) {
-      console.error(err);
+      console.error('Morgan design chat error:', err);
+      // Remove optimistic message on error
+      setChatMessages(prev => prev.filter(m => m.id !== optimisticUser.id));
+    } finally {
       setIsStreaming(false);
       setStreamBuffer('');
     }
   };
 
   const handleSelectStep = (stepNumber: number) => {
+    setIsTeamTab(false);
     setActiveStep(stepNumber);
   };
+
+  // ── Build 044: Wren toast auto-dismiss after 8 seconds ──────────────────
+  useEffect(() => {
+    if (!showWrenToast) return;
+    const timer = setTimeout(() => setShowWrenToast(false), 8000);
+    return () => clearTimeout(timer);
+  }, [showWrenToast]);
+
+  // ── Build 044: close pipeline popover on outside click ───────────────────
+  useEffect(() => {
+    if (!showPipelinePopover) return;
+    const close = () => setShowPipelinePopover(false);
+    // Small delay to avoid closing immediately on the same approve click
+    const timer = setTimeout(() => document.addEventListener('click', close, { once: true }), 200);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', close);
+    };
+  }, [showPipelinePopover]);
 
   // ── Render guards ─────────────────────────────────────────────────────────
   if (loading) {
@@ -566,11 +659,48 @@ export default function FeatureWorkflowScreen() {
       </header>
 
       {/* ── Pipeline strip ── */}
-      <PipelineStrip
-        steps={steps}
-        activeStep={activeStep}
-        onSelectStep={handleSelectStep}
-      />
+      <div style={{ position: 'relative' }}>
+        <PipelineStrip
+          steps={steps}
+          activeStep={activeStep}
+          onSelectStep={handleSelectStep}
+        />
+
+        {/* Build 044: one-time pipeline popover after first Approve */}
+        {showPipelinePopover && (
+          <div
+            data-testid="pipeline-popover"
+            style={{
+              position:        'absolute',
+              top:             '110%',
+              left:            '50%',
+              transform:       'translateX(-50%)',
+              zIndex:          50,
+              backgroundColor: '#fff',
+              border:          '1px solid #C7D2FE',
+              borderRadius:    10,
+              padding:         '12px 16px',
+              maxWidth:        320,
+              boxShadow:       '0 8px 24px rgba(0,0,0,0.12)',
+              fontSize:        13,
+              color:           '#334155',
+              lineHeight:      1.5,
+            }}
+            onClick={() => setShowPipelinePopover(false)}
+          >
+            <button
+              onClick={() => setShowPipelinePopover(false)}
+              style={{
+                position: 'absolute', top: 6, right: 8,
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 16, color: '#94A3B8', lineHeight: 1,
+              }}
+            >×</button>
+            <strong style={{ display: 'block', marginBottom: 4, color: '#4338CA' }}>Pipeline started</strong>
+            This moves the feature to Schema — Sage will set up the database. The pipeline runs automatically from here.
+          </div>
+        )}
+      </div>
 
       {/* ── Tab bar ── */}
       <nav
@@ -580,13 +710,13 @@ export default function FeatureWorkflowScreen() {
         {[1, 2, 3, 4, 5, 6].map(num => {
           const stepRow   = steps.find(s => s.step_number === num);
           const isLocked  = !stepRow || stepRow.status === 'locked';
-          const isActive  = activeStep === num;
+          const isActive  = !isTeamTab && activeStep === num;
 
           return (
             <button
               key={num}
               data-testid={`tab-${STEP_NAMES[num]}`}
-              onClick={() => !isLocked && setActiveStep(num)}
+              onClick={() => { if (!isLocked) { setIsTeamTab(false); setActiveStep(num); } }}
               disabled={isLocked}
               className={[
                 'px-4 py-3 text-sm font-medium border-b-2 transition-colors',
@@ -602,11 +732,28 @@ export default function FeatureWorkflowScreen() {
             </button>
           );
         })}
+
+        {/* Team tab — Build 049 */}
+        <button
+          data-testid="tab-team"
+          onClick={() => setIsTeamTab(true)}
+          className={[
+            'px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+            isTeamTab
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-200',
+          ].join(' ')}
+        >
+          Team Chat
+        </button>
       </nav>
 
       {/* ── Body ── */}
       <div className="flex-1 flex overflow-hidden">
-        {activeStepRow ? (
+        {/* Team tab — Build 049 */}
+        {isTeamTab ? (
+          <TeamChatThread featureId={featureId!} projectId={projectId!} />
+        ) : activeStepRow ? (
           <>
             {/* Design tab: chat sidebar | output editor */}
             {isDesignTab ? (
@@ -634,6 +781,7 @@ export default function FeatureWorkflowScreen() {
                     isApproving={isApproving}
                     isSaving={isSaving}
                     designApproved={designApproved}
+                    showApproveHint={!!showApproveHint}
                   />
                 </div>
               </>
@@ -650,6 +798,7 @@ export default function FeatureWorkflowScreen() {
                   isApproving={isApproving}
                   isSaving={isSaving}
                   designApproved={designApproved}
+                  showApproveHint={false}
                 />
               </div>
             )}
@@ -668,6 +817,59 @@ export default function FeatureWorkflowScreen() {
           </div>
         )}
       </div>
+
+      {/* ── Build 044: Wren "Design is ready" toast ── */}
+      {showWrenToast && (
+        <div
+          data-testid="wren-design-ready-toast"
+          style={{
+            position:        'fixed',
+            bottom:          20,
+            right:           20,
+            zIndex:          100,
+            backgroundColor: '#fff',
+            border:          '1px solid #FDE68A',
+            borderLeft:      '3px solid #F59E0B',
+            borderRadius:    10,
+            padding:         '10px 14px',
+            boxShadow:       '0 8px 24px rgba(0,0,0,0.12)',
+            display:         'flex',
+            alignItems:      'center',
+            gap:             10,
+            maxWidth:        '90vw',
+            minWidth:        260,
+          }}
+        >
+          <Avatar member="wren" size="sm" />
+          <span style={{ fontSize: 13, color: '#92400E', fontWeight: 500, flex: 1 }}>
+            Design is ready — take a look!
+          </span>
+          <button
+            data-testid="wren-toast-view-btn"
+            onClick={() => { setActiveStep(1); setShowWrenToast(false); }}
+            style={{
+              padding:         '4px 10px',
+              borderRadius:    6,
+              border:          'none',
+              backgroundColor: '#F59E0B',
+              color:           '#fff',
+              fontSize:        12,
+              fontWeight:      700,
+              cursor:          'pointer',
+              flexShrink:      0,
+            }}
+          >
+            View →
+          </button>
+          <button
+            onClick={() => setShowWrenToast(false)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 16, color: '#94A3B8', padding: 0, lineHeight: 1,
+            }}
+          >×</button>
+        </div>
+      )}
     </div>
   );
 }

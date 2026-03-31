@@ -1,0 +1,57 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="50" fill="#4338ca"/>
+
+  <!-- Neck -->
+  <rect x="43" y="70" width="14" height="8" fill="#c48756"/>
+
+  <!-- Clothing: jacket -->
+  <path d="M 30 78 L 30 95 L 70 95 L 70 78 Q 60 72 50 72 Q 40 72 30 78 Z" fill="#312e81"/>
+
+  <!-- Face oval with gradient effect -->
+  <defs>
+    <linearGradient id="reeve-skin" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#dca070;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#c48756;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a06840;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="url(#reeve-skin)"/>
+
+  <!-- Ears -->
+  <ellipse cx="28" cy="50" rx="4" ry="7" fill="#c48756"/>
+  <ellipse cx="72" cy="50" rx="4" ry="7" fill="#c48756"/>
+
+  <!-- Hair: short neat style -->
+  <path d="M 29 45 Q 25 35 30 25 Q 35 15 50 12 Q 65 15 70 25 Q 75 35 71 45 Q 70 48 68 50 Q 65 48 50 47 Q 35 48 32 50 Q 30 48 29 45 Z" fill="#1a1520"/>
+  <path d="M 35 25 Q 40 20 50 18 Q 60 20 65 25 Q 63 32 60 38 Q 50 40 40 38 Q 37 32 35 25 Z" fill="#252030"/>
+
+  <!-- Eyebrows -->
+  <path d="M 38 46 Q 42 44 46 46" stroke="#1a1520" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 54 46 Q 58 44 62 46" stroke="#1a1520" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes -->
+  <g>
+    <!-- Left eye -->
+    <ellipse cx="41" cy="51" rx="3.5" ry="4" fill="#fff"/>
+    <circle cx="41" cy="51" r="2" fill="#4a3520"/>
+    <circle cx="41" cy="50.5" r="0.8" fill="#1a1520"/>
+    <circle cx="42" cy="50" r="0.5" fill="#fff"/>
+    <!-- Right eye -->
+    <ellipse cx="59" cy="51" rx="3.5" ry="4" fill="#fff"/>
+    <circle cx="59" cy="51" r="2" fill="#4a3520"/>
+    <circle cx="59" cy="50.5" r="0.8" fill="#1a1520"/>
+    <circle cx="60" cy="50" r="0.5" fill="#fff"/>
+  </g>
+
+  <!-- Nose -->
+  <path d="M 50 51 Q 50 55 50 59" stroke="#a06840" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <path d="M 48 59 Q 49 60 50 60 Q 51 60 52 59" stroke="#a06840" stroke-width="1" fill="none"/>
+
+  <!-- Mouth: gentle smile -->
+  <path d="M 42 67 Q 50 70 58 67" stroke="#a06840" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M 42 67 Q 50 68.5 58 67" stroke="#dca070" stroke-width="0.8" fill="none" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Soft outline for depth -->
+  <ellipse cx="50" cy="53" rx="21" ry="26" fill="none" stroke="#3730a3" stroke-width="0.5" opacity="0.5"/>
+</svg>

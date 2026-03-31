@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
-import TeamAvatar from '@/components/TeamAvatar';
+import { Avatar } from '@/components/Avatar';
 import {
   getProjectBriefing,
   generateDailyBriefing,
@@ -74,10 +74,10 @@ export default function DailyBriefingCard({ projectId }: DailyBriefingCardProps)
   if (briefing === undefined) return null;
 
   const cardStyle: React.CSSProperties = {
-    borderLeft:      '3px solid #475569',
+    borderLeft:      '3px solid #4338CA',
     borderRadius:    10,
     border:          '1px solid var(--color-border)',
-    borderLeftColor: '#475569',
+    borderLeftColor: '#4338CA',
     backgroundColor: 'var(--color-surface)',
     marginBottom:    20,
     overflow:        'hidden',
@@ -88,13 +88,13 @@ export default function DailyBriefingCard({ projectId }: DailyBriefingCardProps)
     return (
       <div data-testid="daily-briefing-card" style={cardStyle}>
         <div style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <TeamAvatar member="morgan" size="md" />
+          <Avatar member="reeve" size="md" />
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--color-text)' }}>
-              Morgan
+              Reeve
             </p>
             <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--color-text-muted)' }}>
-              I'm ready to brief you on {'"'}your project{'"'} — whenever you're ready.
+              I'm ready to brief you on this project — whenever you're ready.
             </p>
           </div>
           <button
@@ -105,7 +105,7 @@ export default function DailyBriefingCard({ projectId }: DailyBriefingCardProps)
               padding:         '7px 16px',
               borderRadius:    8,
               border:          'none',
-              backgroundColor: '#475569',
+              backgroundColor: '#4338CA',
               color:           '#fff',
               fontSize:        13,
               fontWeight:      600,
@@ -144,10 +144,10 @@ export default function DailyBriefingCard({ projectId }: DailyBriefingCardProps)
         gap:            12,
         borderBottom:   collapsed ? 'none' : '1px solid var(--color-border)',
       }}>
-        <TeamAvatar member="morgan" size="sm" />
+        <Avatar member="reeve" size="sm" />
         <div style={{ flex: 1 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)' }}>
-            Morgan's Briefing
+            Reeve's Briefing
           </span>
           <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginLeft: 8 }}>
             {ageLabel}

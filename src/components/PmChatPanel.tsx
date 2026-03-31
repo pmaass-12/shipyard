@@ -47,7 +47,7 @@ import {
   getPmChatThread,
   getPmChatThreadList,
   insertUserPmMessage,
-  generatePmChatResponse,
+  generateReeveChatResponse,
   subscribeToPmChatThread,
 } from '@/api/namedTeam';
 import {
@@ -55,7 +55,8 @@ import {
   createMemoryFact,
   subscribeToMemoryFacts,
 } from '@/api/projectMemory';
-import TeamAvatar from '@/components/TeamAvatar';
+import { Avatar } from '@/components/Avatar';
+import ReeveChatCard from '@/components/ReeveChatCard';
 import MemoryDrawer from '@/components/MemoryDrawer';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -126,7 +127,7 @@ function SaveMemoryModal({ prefill, onSave, onClose }: SaveMemoryModalProps) {
         boxShadow:       '0 20px 60px rgba(0,0,0,0.18)',
       }}>
         <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#1E293B' }}>
-          What should Morgan remember?
+          What should Reeve remember?
         </p>
 
         <input
@@ -224,7 +225,7 @@ function MessageBubble({ msg, onSave }: MessageBubbleProps) {
     >
       {!isUser && (
         <div style={{ flexShrink: 0, marginTop: 2 }}>
-          <TeamAvatar member="morgan" size="xs" />
+          <Avatar member="reeve" size="xs" />
         </div>
       )}
 
@@ -283,7 +284,7 @@ function ThinkingIndicator() {
       data-testid="pm-chat-thinking"
       style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}
     >
-      <TeamAvatar member="morgan" size="xs" />
+      <Avatar member="reeve" size="xs" />
       <div style={{
         display: 'flex', alignItems: 'center', gap: 4,
         padding: '8px 12px', borderRadius: '4px 14px 14px 14px',
@@ -328,7 +329,7 @@ function ThreadList({ threads, loading, onSelect, onNewThread }: ThreadListProps
       {!loading && threads.length === 0 && (
         <div style={{ padding: '32px 20px', textAlign: 'center' }}>
           <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 16 }}>
-            No conversations yet. Start a chat with Morgan.
+            No conversations yet. Start a chat with Reeve.
           </div>
           <button
             onClick={onNewThread}
@@ -440,14 +441,14 @@ function ChatView({ projectId, threadId, onBack, onSaveMessage }: ChatViewProps)
 
     try {
       await insertUserPmMessage(projectId, threadId, trimmed);
-      const result = await generatePmChatResponse(projectId, threadId, trimmed);
+      const result = await generateReeveChatResponse(projectId, threadId, trimmed);
       // Check for proactive save suggestion in response metadata
       if (result.save_suggestion) {
         setProactiveSave(result.save_suggestion);
       }
       // realtime subscription handles incoming assistant message
     } catch (err) {
-      console.error('PM chat send error:', err);
+      console.error('Reeve chat send error:', err);
       setThinking(false);
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));
     } finally {
@@ -505,7 +506,7 @@ function ChatView({ projectId, threadId, onBack, onSaveMessage }: ChatViewProps)
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               gap: 8, marginBottom: 20, paddingTop: 16,
             }}>
-              <TeamAvatar member="morgan" size="md" />
+              <Avatar member="reeve" size="md" />
               <p style={{ fontSize: 13, color: '#64748B', margin: 0, textAlign: 'center' }}>
                 Ask me anything about this project.
               </p>
@@ -531,9 +532,14 @@ function ChatView({ projectId, threadId, onBack, onSaveMessage }: ChatViewProps)
           </div>
         )}
 
-        {messages.map(msg => (
-          <MessageBubble key={msg.id} msg={msg} onSave={onSaveMessage} />
-        ))}
+        {messages.map(msg =>
+          // Build 048 — render action card for non-text card types
+          msg.card_type && msg.card_type !== 'text' ? (
+            <ReeveChatCard key={msg.id} message={msg} projectId={projectId} />
+          ) : (
+            <MessageBubble key={msg.id} msg={msg} onSave={onSaveMessage} />
+          )
+        )}
 
         {thinking && <ThinkingIndicator />}
 
@@ -610,7 +616,7 @@ function ChatView({ projectId, threadId, onBack, onSaveMessage }: ChatViewProps)
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Morgan anything… (Enter to send)"
+            placeholder="Ask Reeve anything… (Enter to send)"
             rows={2}
             style={{
               flex: 1, border: 'none', outline: 'none',
@@ -668,7 +674,7 @@ export default function PmChatPanel({ projectId, onClose }: PmChatPanelProps) {
     title: string; body: string; category: MemoryFactCategory;
   } | null>(null);
 
-  const morgan = TEAM.morgan;
+  const reeve = TEAM.reeve;
 
   // Load thread list
   useEffect(() => {
@@ -778,7 +784,7 @@ export default function PmChatPanel({ projectId, onClose }: PmChatPanelProps) {
           zIndex:          50,
           display:         'flex',
           flexDirection:   'column',
-          borderLeft:      `3px solid ${morgan.color}`,
+          borderLeft:      `3px solid ${reeve.color}`,
           overflow:        'hidden',
         }}
       >
@@ -793,10 +799,10 @@ export default function PmChatPanel({ projectId, onClose }: PmChatPanelProps) {
           flexShrink:      0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <TeamAvatar member="morgan" size="sm" />
+            <Avatar member="reeve" size="sm" />
             <div>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#1E293B' }}>Project Brain</p>
-              <p style={{ margin: 0, fontSize: 11, color: '#94A3B8' }}>Morgan · Product Manager · AI</p>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#1E293B' }}>Reeve</p>
+              <p style={{ margin: 0, fontSize: 11, color: '#94A3B8' }}>Reeve · Project Manager · AI</p>
             </div>
           </div>
 
