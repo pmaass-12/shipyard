@@ -47,12 +47,13 @@ interface ReeveGreetingCardProps {
   projectName:  string;
   description:  string | null;
   onComplete:   () => void;   // called after first exchange or dismiss
+  hasClaudeKey?: boolean;     // Build 056: false/undefined → show API key nudge
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function ReeveGreetingCard({
-  projectId, projectName, description, onComplete,
+  projectId, projectName, description, onComplete, hasClaudeKey,
 }: ReeveGreetingCardProps) {
   const [greeting,       setGreeting]       = useState<string | null>(null);
   const [loadingGreet,   setLoadingGreet]   = useState(true);
@@ -383,6 +384,43 @@ export default function ReeveGreetingCard({
         >
           <Avatar member="reeve" size="xs" />
           Reeve is thinking…
+        </div>
+      )}
+
+      {/* Build 056: API key nudge — shown when no Claude API key is configured */}
+      {hasClaudeKey === false && (
+        <div
+          data-testid="reeve-greeting-api-key-nudge"
+          style={{
+            margin:          '0 20px 20px',
+            padding:         '12px 14px',
+            background:      '#fffbeb',
+            border:          '1px solid #fde68a',
+            borderRadius:    10,
+            fontSize:        13,
+            color:           '#92400e',
+            display:         'flex',
+            alignItems:      'center',
+            justifyContent:  'space-between',
+            gap:             12,
+          }}
+        >
+          <span>
+            One more thing — add your Claude API key in Admin Console before we start generating.
+          </span>
+          <a
+            href={`/admin?project=${projectId}`}
+            style={{
+              flexShrink:     0,
+              color:          '#b45309',
+              fontWeight:     600,
+              fontSize:       12,
+              textDecoration: 'none',
+              whiteSpace:     'nowrap',
+            }}
+          >
+            Go to Admin Console →
+          </a>
         </div>
       )}
     </div>

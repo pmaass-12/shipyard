@@ -5,6 +5,7 @@ import {
   getMonogram, getMonogramColors, resolveColor,
   STATUS_COLORS, statusLabel,
   pctLabel, pctValue, progressBarColor, relativeTime,
+  deriveLifecycle, LIFECYCLE_DISPLAY,
 } from './utils';
 import { menuOptions, type MenuItem } from '@/api/projects';
 import type { ProjectSummary } from '@/types/db';
@@ -25,9 +26,11 @@ export function ProjectCard({ project, onClick, onAction, onDelete }: ProjectCar
   const mono    = getMonogramColors(color);
   const badge   = STATUS_COLORS[project.status];
 
-  const pct     = pctValue(project.pct_complete);
-  const barColor = progressBarColor(project.status);
-  const monogram = getMonogram(project.name);
+  const pct       = pctValue(project.pct_complete);
+  const barColor   = progressBarColor(project.status);
+  const monogram   = getMonogram(project.name);
+  const lifecycle  = deriveLifecycle(project);
+  const lcDisplay  = LIFECYCLE_DISPLAY[lifecycle];
 
   const handleMenuAction = (action: MenuItem['action']) => {
     if (action === 'delete') {
@@ -166,40 +169,57 @@ export function ProjectCard({ project, onClick, onAction, onDelete }: ProjectCar
         className="grid grid-cols-3 rounded-xl overflow-hidden text-center"
         style={{ gap: '1px', background: 'var(--color-divider)' }}
       >
-        {[
-          {
-            value: String(project.screen_count),
-            label: 'SCREENS',
-            highlight: false,
-          },
-          {
-            value: String(project.open_bug_count),
-            label: 'OPEN BUGS',
-            highlight: project.open_bug_count > 0,
-          },
-          {
-            value: relativeTime(project.last_deploy_date),
-            label: 'LAST DEPLOY',
-            highlight: project.last_deploy_date !== null,
-          },
-        ].map(({ value, label, highlight }) => (
-          <div
-            key={label}
-            className="flex flex-col items-center py-2.5 px-1"
-            style={{ background: 'var(--color-surface)' }}
+        {/* Lifecycle */}
+        <div
+          className="flex flex-col items-center py-2.5 px-1"
+          style={{ background: 'var(--color-surface)' }}
+        >
+          <span
+            className="inline-flex items-center gap-1 text-xs font-semibold leading-none mb-1 px-2 py-0.5 rounded-full"
+            style={{ background: lcDisplay.bg, color: lcDisplay.text }}
           >
-            <span
-              className="text-sm font-bold leading-none mb-1"
-              style={{ color: highlight ? (label === 'OPEN BUGS' ? '#ef4444' : '#22c55e') : 'var(--color-text)' }}
-            >
-              {value}
-            </span>
-            <span className="text-[10px] tracking-wide font-medium"
-              style={{ color: 'var(--color-text-subtle)' }}>
-              {label}
-            </span>
-          </div>
-        ))}
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: lcDisplay.dot }} />
+            {lcDisplay.label}
+          </span>
+          <span className="text-[10px] tracking-wide font-medium mt-1"
+            style={{ color: 'var(--color-text-subtle)' }}>
+            STATUS
+          </span>
+        </div>
+
+        {/* Open bugs */}
+        <div
+          className="flex flex-col items-center py-2.5 px-1"
+          style={{ background: 'var(--color-surface)' }}
+        >
+          <span
+            className="text-sm font-bold leading-none mb-1"
+            style={{ color: project.open_bug_count > 0 ? '#ef4444' : 'var(--color-text)' }}
+          >
+            {String(project.open_bug_count)}
+          </span>
+          <span className="text-[10px] tracking-wide font-medium"
+            style={{ color: 'var(--color-text-subtle)' }}>
+            OPEN BUGS
+          </span>
+        </div>
+
+        {/* Last deploy */}
+        <div
+          className="flex flex-col items-center py-2.5 px-1"
+          style={{ background: 'var(--color-surface)' }}
+        >
+          <span
+            className="text-sm font-bold leading-none mb-1"
+            style={{ color: project.last_deploy_date !== null ? '#22c55e' : 'var(--color-text)' }}
+          >
+            {relativeTime(project.last_deploy_date)}
+          </span>
+          <span className="text-[10px] tracking-wide font-medium"
+            style={{ color: 'var(--color-text-subtle)' }}>
+            LAST DEPLOY
+          </span>
+        </div>
       </div>
 
       {/* Inline delete confirmation overlay */}

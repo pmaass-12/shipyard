@@ -355,6 +355,12 @@ const MONETIZATION_CARDS: MonetizationCard[] = [
     title: 'One-time purchase',
     description: 'A single payment for access via Stripe',
   },
+  {
+    id: 'donation',
+    icon: '❤️',
+    title: 'Donations',
+    description: 'Accept one-time or recurring donations from your users',
+  },
 ];
 
 function Screen3({
@@ -551,17 +557,34 @@ function Screen5({
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  async function runWizardDefaults() {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token ?? '';
+    await triggerWizardDefaults(projectId, token);
+  }
+
   async function handleCompletion() {
     setTriggering(true);
     setError('');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
-
-      await triggerWizardDefaults(projectId, token);
+      await runWizardDefaults();
       showToast('Project setup complete!');
-      // Navigate to project screens or hub
       navigate(`/projects/${projectId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Completion failed');
+      console.error('Wizard completion error:', err);
+    } finally {
+      setTriggering(false);
+    }
+  }
+
+  async function handleSetupInfra() {
+    setTriggering(true);
+    setError('');
+    try {
+      await runWizardDefaults();
+      showToast('Project setup complete!');
+      navigate(`/projects/${projectId}/setup/infra`); // routing-fix-031: /deploy has no route; infra wizard lives at /setup/infra
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Completion failed');
       console.error('Wizard completion error:', err);
@@ -603,35 +626,65 @@ function Screen5({
           </div>
 
           <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-0.04em', color: T.text, marginBottom: 8 }}>
-            Ready to ship
+            Let's start designing.
           </div>
-          <div style={{ fontSize: 16, color: T.muted, marginBottom: 24 }}>
-            Let's start building
+          <div style={{ fontSize: 16, color: T.muted, marginBottom: 32 }}>
+            Reeve and the team are ready to go.
           </div>
 
-          {error && <p style={{ color: T.red, fontSize: 12, margin: '12px 0 0' }}>{error}</p>}
+          {error && <p style={{ color: T.red, fontSize: 12, margin: '0 0 16px' }}>{error}</p>}
 
-          <button
-            data-testid="wizard-completion-cta"
-            onClick={handleCompletion}
-            disabled={triggering}
-            style={{
-              display: 'inline-block',
-              padding: '15px 40px',
-              fontSize: 16,
-              fontWeight: 600,
-              background: `linear-gradient(135deg, ${T.accent} 0%, #7c7ce0 100%)`,
-              color: 'white',
-              border: 'none',
-              borderRadius: 10,
-              cursor: triggering ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s',
-              boxShadow: `0 4px 20px ${T.accent}59`,
-              opacity: triggering ? 0.7 : 1,
-            }}
-          >
-            {triggering ? 'Setting up…' : 'Let\'s start building'}
-          </button>
+          {/* Build 032-upd2: Two-CTA layout — both 320px wide, centred, not in bottom nav */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            {/* Primary CTA: Start designing → */}
+            <button
+              data-testid="wizard-completion-cta"
+              onClick={handleCompletion}
+              disabled={triggering}
+              style={{
+                width: 320,
+                height: 48,
+                fontSize: 16,
+                fontWeight: 600,
+                background: T.accent,
+                color: 'white',
+                border: 'none',
+                borderRadius: 10,
+                cursor: triggering ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s',
+                opacity: triggering ? 0.7 : 1,
+                fontFamily: 'inherit',
+              }}
+            >
+              {triggering ? 'Setting up…' : 'Start designing →'}
+            </button>
+
+            {/* Secondary CTA: Set up infrastructure (ghost/outlined) */}
+            <button
+              data-testid="wizard-setup-infra-cta"
+              onClick={handleSetupInfra}
+              disabled={triggering}
+              style={{
+                width: 320,
+                height: 48,
+                fontSize: 15,
+                fontWeight: 600,
+                background: 'transparent',
+                color: T.accent,
+                border: `2px solid ${T.accent}`,
+                borderRadius: 10,
+                cursor: triggering ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s',
+                fontFamily: 'inherit',
+                opacity: triggering ? 0.7 : 1,
+              }}
+            >
+              Set up infrastructure
+            </button>
+            <div style={{ fontSize: 12, color: T.faint, lineHeight: 1.5, textAlign: 'center', maxWidth: 320 }}>
+              Connect GitHub, Netlify, and Supabase — you can do this now or later
+            </div>
+          </div>
         </div>
       </div>
 
@@ -802,22 +855,20 @@ export default function SetupWizardScreen() {
                 background: T.accent,
                 color: 'white',
                 border: 'none',
-                fontSize: showPrimaryCta ? 16 : 15,
+                fontSize: 15,
                 fontWeight: 600,
-                padding: showPrimaryCta ? '15px 40px' : '13px 32px',
+                padding: '13px 32px',
                 borderRadius: 10,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 transition: 'all 0.15s',
-                backgroundImage: showPrimaryCta ? `linear-gradient(135deg, ${T.accent} 0%, #7c7ce0 100%)` : 'none',
-                boxShadow: showPrimaryCta ? `0 4px 20px ${T.accent}59` : 'none',
-                display: 'flex',
+                display: currentScreen === 5 ? 'none' : 'flex',
                 alignItems: 'center',
                 gap: 8,
                 letterSpacing: '-0.01em',
               }}
             >
-              {currentScreen === 5 ? 'Start building' : 'Continue'} →
+              Continue →
             </button>
           </div>
         </div>

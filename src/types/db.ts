@@ -1152,7 +1152,7 @@ export interface ImportItem {
 // ── Build 032: Setup Wizard Full Redesign ──────────────────────────────────
 
 export type AudienceType    = 'personal' | 'b2c' | 'b2b';
-export type MonetizationType = 'free' | 'adsense' | 'subscription' | 'one_time';
+export type MonetizationType = 'free' | 'adsense' | 'subscription' | 'one_time' | 'donation';
 
 export interface WizardConfig {
   audience_type:    AudienceType;

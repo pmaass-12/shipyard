@@ -71,6 +71,16 @@ export default function ProjectsListScreen() {
     navigate(`/projects/${id}/setup`);
   };
 
+  // New Project card: create a blank project then go straight to wizard (no modal)
+  const onNewProjectCard = async () => {
+    try {
+      const { id } = await handleCreate({ name: 'New Project' });
+      navigate(`/projects/${id}/setup/wizard`); // routing-fix-031: restore ProjectTypeChoiceScreen
+    } catch {
+      showToast('Could not create project. Try again.', 'error');
+    }
+  };
+
   const onCardAction = async (id: string, action: MenuItem['action']) => {
     const project = filteredProjects.find(p => p.id === id);
     if (!project) return;
@@ -182,18 +192,7 @@ export default function ProjectsListScreen() {
               )}
             </Link>
 
-            {/* New project button */}
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-lg
-                text-sm font-semibold text-white transition-colors"
-              style={{ background: 'var(--color-accent)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-accent-hover)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-accent)')}
-            >
-              <Plus size={14} />
-              New project
-            </button>
+
 
             {/* Avatar */}
             <button
@@ -229,15 +228,7 @@ export default function ProjectsListScreen() {
             )}
           </div>
 
-          {/* Mobile new button */}
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="sm:hidden w-9 h-9 flex items-center justify-center rounded-xl text-white"
-            style={{ background: 'var(--color-accent)' }}
-            aria-label="New project"
-          >
-            <Plus size={18} />
-          </button>
+
         </div>
 
         {/* Filter pills */}
@@ -296,6 +287,38 @@ export default function ProjectsListScreen() {
                 onDelete={onDeleteProject}
               />
             ))}
+
+            {/* New project card */}
+            <button
+              data-testid="new-project-card"
+              onClick={onNewProjectCard}
+              className="rounded-2xl border-2 border-dashed flex flex-col items-center justify-center
+                gap-3 transition-all duration-150 cursor-pointer group"
+              style={{
+                borderColor: 'var(--color-border)',
+                minHeight: '200px',
+                background: 'transparent',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'var(--color-accent)';
+                e.currentTarget.style.background  = 'var(--color-accent-light)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'var(--color-border)';
+                e.currentTarget.style.background  = 'transparent';
+              }}
+              aria-label="New project"
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+                style={{ background: 'var(--color-accent-light)', color: 'var(--color-accent)' }}
+              >
+                <Plus size={20} />
+              </div>
+              <span className="text-sm font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                New project
+              </span>
+            </button>
           </div>
         )}
       </main>

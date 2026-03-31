@@ -24,6 +24,7 @@ import {
   type GithubConfig,
   type DeployHistoryRow,
 } from '@/api/github';
+import { supabase } from '@/lib/supabase';
 import { useToast } from '@/context/ToastContext';
 
 // ── Design tokens ─────────────────────────────────────────────────────────
@@ -54,14 +55,23 @@ export default function GithubScreen() {
   const [formData, setFormData] = useState({ repo: '', branch: '' });
   const [saving, setSaving] = useState(false);
 
-  // Load config and deploy history on mount
+  // Build 059: Netlify Deploy Hook URL — lives on project_settings, not projects
+  const [deployHookUrl, setDeployHookUrl]     = useState('');
+  const [hookSaving, setHookSaving]           = useState(false);
+
+  // Load config, deploy history, and Netlify hook URL on mount
   useEffect(() => {
     async function init() {
       if (!projectId) return;
       try {
-        const [configData, historyData] = await Promise.all([
+        const [configData, historyData, settingsRes] = await Promise.all([
           getGithubConfig(projectId),
           getDeployHistory(projectId),
+          supabase
+            .from('project_settings')
+            .select('netlify_deploy_hook_url')
+            .eq('project_id', projectId)
+            .maybeSingle(),
         ]);
         setConfig(configData);
         setDeployHistory(historyData);
@@ -69,6 +79,7 @@ export default function GithubScreen() {
           repo: configData.github_repo || '',
           branch: configData.github_default_branch || 'main',
         });
+        setDeployHookUrl(settingsRes.data?.netlify_deploy_hook_url ?? '');
       } catch (err) {
         console.error('Failed to load GitHub config:', err);
         showToast('Failed to load GitHub settings', 'error');
@@ -121,6 +132,27 @@ export default function GithubScreen() {
       showToast('Failed to save GitHub config', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Build 059: save Netlify deploy hook URL to project_settings
+  const handleSaveDeployHook = async () => {
+    if (!projectId) return;
+    setHookSaving(true);
+    try {
+      const { error } = await supabase
+        .from('project_settings')
+        .upsert(
+          { project_id: projectId, netlify_deploy_hook_url: deployHookUrl.trim() || null },
+          { onConflict: 'project_id' },
+        );
+      if (error) throw error;
+      showToast('Deploy hook saved', 'success');
+    } catch (err) {
+      console.error('Failed to save deploy hook:', err);
+      showToast('Failed to save deploy hook URL', 'error');
+    } finally {
+      setHookSaving(false);
     }
   };
 
@@ -354,6 +386,79 @@ export default function GithubScreen() {
           </button>
         </div>
       )}
+
+      {/* ── Build 059: Netlify Deploy Hook ───────────────────────────────────── */}
+      <div style={{ marginBottom: '32px' }}>
+        <div style={{ fontSize: '16px', fontWeight: '600', color: T.text, marginBottom: '4px' }}>
+          Netlify Deploy Hook
+        </div>
+        <div style={{ fontSize: '13px', color: T.text2, marginBottom: '16px' }}>
+          When you trigger a deploy from the Feature Board, Shipyard POSTs to this URL to kick off a
+          Netlify rebuild. Find it in your Netlify site settings under{' '}
+          <em>Build &amp; deploy → Build hooks</em>. Treat it like a password — anyone with this URL
+          can trigger a deploy.
+        </div>
+
+        <div
+          style={{
+            backgroundColor: T.surface,
+            border: `1px solid ${T.border}`,
+            borderRadius: '8px',
+            padding: '20px',
+          }}
+        >
+          <label
+            htmlFor="deploy-hook-input"
+            style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: T.text, fontWeight: '500' }}
+          >
+            Deploy Hook URL
+          </label>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <input
+              id="deploy-hook-input"
+              type="password"
+              value={deployHookUrl}
+              onChange={(e) => setDeployHookUrl(e.target.value)}
+              placeholder="https://api.netlify.com/build_hooks/..."
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                backgroundColor: T.surface2,
+                color: T.text,
+                border: `1px solid ${T.border}`,
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'monospace',
+              }}
+              data-testid="deploy-hook-url-input"
+            />
+            <button
+              onClick={handleSaveDeployHook}
+              disabled={hookSaving}
+              style={{
+                padding: '10px 16px',
+                backgroundColor: T.accent,
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: hookSaving ? 'not-allowed' : 'pointer',
+                opacity: hookSaving ? 0.6 : 1,
+                whiteSpace: 'nowrap',
+              }}
+              data-testid="save-deploy-hook-btn"
+            >
+              {hookSaving ? 'Saving…' : 'Save Hook'}
+            </button>
+          </div>
+          {deployHookUrl && (
+            <div style={{ marginTop: '8px', fontSize: '12px', color: T.green }}>
+              ✓ Hook configured
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Deploy History Section */}
       <div>

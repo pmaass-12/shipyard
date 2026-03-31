@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';  // Build 059: deploy log queries
 import {
   listAdminUsers,
   filterUsers,
@@ -977,6 +978,34 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
   const [hlDrafts, setHlDrafts] = useState<Array<{ id?: string; icon: string; title: string; description: string }>>([]);
   const [hlEditing, setHlEditing] = useState(false);
 
+  // ── 056: AI Settings state ────────────────────────────────────────────
+  const [apiKey,          setApiKey]          = useState('');
+  const [apiKeyVisible,   setApiKeyVisible]   = useState(false);
+  const [apiKeySaving,    setApiKeySaving]    = useState(false);
+  const [apiKeySavedOk,   setApiKeySavedOk]   = useState(false);
+  const [apiKeyStatus,    setApiKeyStatus]    = useState<'idle' | 'testing' | 'connected' | 'invalid'>('idle');
+  const [defaultModel,    setDefaultModel]    = useState('claude-sonnet-4-6');
+  const [modelSaving,     setModelSaving]     = useState(false);
+
+  // ── 059: Deploy History state ─────────────────────────────────────────
+  interface DeployLogEntry {
+    id:                    string;
+    deployed_at:           string;
+    target:                'alpha' | 'beta' | 'production';
+    feature_ids:           string[];
+    triggered_by:          string | null;
+    netlify_response_code: number | null;
+    // resolved client-side:
+    feature_names?:        string[];
+    triggered_by_email?:   string | null;
+  }
+  const [deployLogs,        setDeployLogs]        = useState<DeployLogEntry[]>([]);
+  const [deployLogsLoading, setDeployLogsLoading] = useState(false);
+  const [deployLogsPage,    setDeployLogsPage]    = useState(1);
+  const DEPLOY_LOGS_PER_PAGE = 10;
+  // Expanded "+N more" feature list per log entry
+  const [expandedLogIds,    setExpandedLogIds]    = useState<Set<string>>(new Set());
+
   // Load all panel data on mount
   useEffect(() => {
     if (!projectId) return;
@@ -1004,6 +1033,50 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
         setHighlights(hl);
       } catch { /* non-critical */ }
       finally { setHlLoading(false); }
+
+      // AI Settings (Build 056)
+      try {
+        const { data: aiSettings } = await supabase
+          .from('project_settings')
+          .select('claude_api_key, default_model')
+          .eq('project_id', projectId)
+          .maybeSingle();
+        if (aiSettings) {
+          if (aiSettings.claude_api_key)  setApiKey(aiSettings.claude_api_key);
+          if (aiSettings.default_model)   setDefaultModel(aiSettings.default_model);
+          if (aiSettings.claude_api_key)  setApiKeyStatus('connected');
+        }
+      } catch { /* non-critical */ }
+
+      // Deploy History (Build 059)
+      setDeployLogsLoading(true);
+      try {
+        const { data: logs } = await supabase
+          .from('deploy_log')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('deployed_at', { ascending: false })
+          .limit(50);
+
+        if (logs && logs.length > 0) {
+          // Gather all unique feature_ids across all log entries to batch-resolve names
+          const allFeatureIds = [...new Set((logs as DeployLogEntry[]).flatMap(l => l.feature_ids))];
+          const { data: featRows } = await supabase
+            .from('features')
+            .select('id, name')
+            .in('id', allFeatureIds);
+          const featureMap = new Map<string, string>(
+            (featRows ?? []).map((f: { id: string; name: string }) => [f.id, f.name])
+          );
+
+          const enriched = (logs as DeployLogEntry[]).map(log => ({
+            ...log,
+            feature_names: log.feature_ids.map(fid => featureMap.get(fid) ?? '[deleted]'),
+          }));
+          setDeployLogs(enriched);
+        }
+      } catch { /* non-critical */ }
+      finally { setDeployLogsLoading(false); }
     })();
   }, [projectId]);
 
@@ -1170,6 +1243,75 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       showToast('Project moved to Beta phase');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed', 'error');
+    }
+  }
+
+  // ── 056 handlers ──────────────────────────────────────────────────────
+
+  async function handleSaveApiKey() {
+    if (apiKeySaving) return;
+    setApiKeySaving(true);
+    setApiKeySavedOk(false);
+    try {
+      await supabase
+        .from('project_settings')
+        .upsert(
+          { project_id: projectId, claude_api_key: apiKey.trim() || null },
+          { onConflict: 'project_id' },
+        );
+      setApiKeySavedOk(true);
+      // Reset "Saved ✓" label after 2s
+      setTimeout(() => setApiKeySavedOk(false), 2000);
+      // If key was cleared, reset test status
+      if (!apiKey.trim()) setApiKeyStatus('idle');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save', 'error');
+    } finally {
+      setApiKeySaving(false);
+    }
+  }
+
+  async function handleTestKey() {
+    if (apiKeyStatus === 'testing') return;
+    const keyToTest = apiKey.trim();
+    if (!keyToTest) return;
+    setApiKeyStatus('testing');
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key':          keyToTest,
+          'anthropic-version':  '2023-06-01',
+          'content-type':       'application/json',
+        },
+        body: JSON.stringify({
+          model:      'claude-haiku-4-5-20251001',
+          max_tokens: 1,
+          messages:   [{ role: 'user', content: 'hi' }],
+        }),
+      });
+      setApiKeyStatus(res.ok ? 'connected' : 'invalid');
+    } catch {
+      setApiKeyStatus('invalid');
+    }
+  }
+
+  async function handleSaveModel(model: string) {
+    if (modelSaving) return;
+    setModelSaving(true);
+    setDefaultModel(model);
+    try {
+      await supabase
+        .from('project_settings')
+        .upsert(
+          { project_id: projectId, default_model: model },
+          { onConflict: 'project_id' },
+        );
+      showToast('Model saved');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save', 'error');
+    } finally {
+      setModelSaving(false);
     }
   }
 
@@ -1564,6 +1706,289 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
             View Signups ↗
           </button>
         </div>
+      </div>
+
+      {/* ── Build 056: AI Settings ───────────────────────────────────────── */}
+      <div style={cardStyle} data-testid="ai-settings-section">
+        <div style={cardTitle}>🤖 AI Settings (Build 056)</div>
+        <div style={cardSub}>Configure the AI model powering your features.</div>
+
+        {/* Claude API Key */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+            Claude API Key
+          </div>
+          <div style={{ fontSize: 11, color: T.text2, marginBottom: 10 }}>
+            Your API key from{' '}
+            <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer"
+              style={{ color: T.accent, textDecoration: 'none' }}>
+              console.anthropic.com
+            </a>. Never shared.
+          </div>
+
+          {/* Input row */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                data-testid="claude-api-key-input"
+                type={apiKeyVisible ? 'text' : 'password'}
+                value={apiKey}
+                onChange={(e) => { setApiKey(e.target.value); setApiKeyStatus('idle'); }}
+                placeholder="sk-ant-..."
+                style={{
+                  width: '100%', height: 44, padding: '0 40px 0 12px',
+                  background: T.surface3, border: `1.5px solid ${T.border2}`,
+                  borderRadius: 8, color: T.text, fontSize: 13,
+                  outline: 'none', boxSizing: 'border-box',
+                  fontFamily: 'monospace',
+                }}
+                onFocus={(e)  => { e.currentTarget.style.borderColor = T.accent; }}
+                onBlur={(e)   => { e.currentTarget.style.borderColor = T.border2; }}
+              />
+              {/* Show/hide toggle */}
+              <button
+                data-testid="api-key-visibility-toggle"
+                onClick={() => setApiKeyVisible(v => !v)}
+                title={apiKeyVisible ? 'Hide key' : 'Show key'}
+                style={{
+                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: T.text2, fontSize: 15, padding: 2,
+                }}
+              >
+                {apiKeyVisible ? '🙈' : '👁'}
+              </button>
+            </div>
+
+            {/* Save button */}
+            <button
+              data-testid="save-api-key-btn"
+              onClick={handleSaveApiKey}
+              disabled={apiKeySaving}
+              style={{
+                width: 72, height: 44, borderRadius: 8, border: 'none',
+                background: apiKeySavedOk ? T.green : T.accent,
+                color: '#fff', fontSize: 13, fontWeight: 600,
+                cursor: apiKeySaving ? 'not-allowed' : 'pointer',
+                opacity: apiKeySaving ? 0.7 : 1, flexShrink: 0,
+                transition: 'background 0.2s',
+              }}
+            >
+              {apiKeySavedOk ? 'Saved ✓' : apiKeySaving ? '…' : 'Save'}
+            </button>
+          </div>
+
+          {/* Test key row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+            <button
+              data-testid="test-api-key-btn"
+              onClick={handleTestKey}
+              disabled={!apiKey.trim() || apiKeyStatus === 'testing'}
+              style={{
+                background: 'none', border: 'none', cursor: apiKey.trim() ? 'pointer' : 'not-allowed',
+                color: apiKey.trim() ? T.accent : T.text3, fontSize: 13, padding: 0,
+                opacity: apiKey.trim() ? 1 : 0.5,
+              }}
+            >
+              {apiKeyStatus === 'testing' ? 'Testing…' : 'Test key →'}
+            </button>
+
+            {apiKeyStatus === 'connected' && (
+              <span data-testid="api-key-status-connected"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: T.green }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: T.green, display: 'inline-block' }} />
+                Connected
+              </span>
+            )}
+            {apiKeyStatus === 'invalid' && (
+              <span data-testid="api-key-status-invalid"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: T.red }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: T.red, display: 'inline-block' }} />
+                Invalid key
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Default Model */}
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>
+            Default Model
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {([
+              { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5',   tagline: 'Fastest & most affordable', cost: '~$0.01 / feature' },
+              { id: 'claude-sonnet-4-6',         name: 'Sonnet 4.6',  tagline: 'Best balance of speed & quality', cost: '~$0.05 / feature', recommended: true },
+              { id: 'claude-opus-4-6',           name: 'Opus 4.6',    tagline: 'Most capable', cost: '~$0.20 / feature' },
+            ] as const).map((m) => {
+              const selected = defaultModel === m.id;
+              return (
+                <div
+                  key={m.id}
+                  data-testid={`model-card-${m.id}`}
+                  onClick={() => !modelSaving && handleSaveModel(m.id)}
+                  style={{
+                    position: 'relative',
+                    padding: '14px 16px',
+                    borderRadius: 10, cursor: 'pointer',
+                    border: selected ? `2px solid #4338ca` : `1.5px solid ${T.border2}`,
+                    background: selected ? '#1e1b4b' : T.surface3,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {m.recommended && (
+                    <span style={{
+                      position: 'absolute', top: 8, right: 8,
+                      background: T.accent, color: '#fff',
+                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                    }}>
+                      Recommended
+                    </span>
+                  )}
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+                    {m.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: T.text2, marginBottom: 2 }}>{m.tagline}</div>
+                  <div style={{ fontSize: 11, color: T.text3 }}>{m.cost}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Build 059: Deploy History ─────────────────────────────────────── */}
+      <div style={cardStyle} data-testid="deploy-history-section">
+        <div style={cardTitle}>🚀 Deploy History (Build 059)</div>
+        <div style={cardSub}>All deploys for this project, newest first.</div>
+
+        {deployLogsLoading ? (
+          <div style={{ fontSize: 13, color: T.text2 }}>Loading…</div>
+        ) : deployLogs.length === 0 ? (
+          <div
+            style={{ fontSize: 13, color: T.text2, textAlign: 'center', padding: '12px 0' }}
+            data-testid="deploy-history-empty"
+          >
+            No deploys yet. Deploy features from the Feature Board.
+          </div>
+        ) : (
+          <>
+            <div>
+              {deployLogs
+                .slice(0, deployLogsPage * DEPLOY_LOGS_PER_PAGE)
+                .map((log, idx) => {
+                  const isExpanded = expandedLogIds.has(log.id);
+                  const names      = log.feature_names ?? log.feature_ids.map(() => '…');
+                  const shown      = isExpanded ? names : names.slice(0, 2);
+                  const overflow   = names.length - 2;
+
+                  const targetColors: Record<string, { bg: string; color: string }> = {
+                    alpha:      { bg: '#eef0ff', color: '#4338ca' },
+                    beta:       { bg: '#e0f2fe', color: '#0284c7' },
+                    production: { bg: '#f0fdf4', color: '#16a34a' },
+                  };
+                  const tc = targetColors[log.target] ?? { bg: T.surface3, color: T.text2 };
+
+                  const absTime  = new Date(log.deployed_at).toLocaleString();
+                  const relTime  = (() => {
+                    const diffMs  = Date.now() - new Date(log.deployed_at).getTime();
+                    const diffMin = Math.floor(diffMs / 60000);
+                    const diffHr  = Math.floor(diffMin / 60);
+                    const diffDay = Math.floor(diffHr / 24);
+                    if (diffMin < 2)  return 'just now';
+                    if (diffMin < 60) return `${diffMin}m ago`;
+                    if (diffHr  < 24) return `${diffHr}h ago`;
+                    return `${diffDay}d ago`;
+                  })();
+
+                  return (
+                    <div
+                      key={log.id}
+                      style={{
+                        borderBottom: idx < Math.min(deployLogs.length, deployLogsPage * DEPLOY_LOGS_PER_PAGE) - 1
+                          ? `1px solid ${T.border}` : 'none',
+                        padding: '10px 0',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        fontSize: 13,
+                      }}
+                      data-testid={`deploy-log-row-${idx}`}
+                    >
+                      {/* Timestamp */}
+                      <div
+                        style={{ color: T.text2, minWidth: 70, flexShrink: 0 }}
+                        title={absTime}
+                      >
+                        {relTime}
+                      </div>
+
+                      {/* Target badge */}
+                      <div
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: 20,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: tc.bg,
+                          color: tc.color,
+                          flexShrink: 0,
+                          textTransform: 'capitalize',
+                        }}
+                        data-testid={`deploy-log-target-${idx}`}
+                      >
+                        {log.target}
+                      </div>
+
+                      {/* Feature names */}
+                      <div style={{ flex: 1, color: T.text, lineHeight: 1.5 }}>
+                        {shown.join(', ')}
+                        {!isExpanded && overflow > 0 && (
+                          <>
+                            {' '}
+                            <button
+                              onClick={() => setExpandedLogIds(prev => new Set([...prev, log.id]))}
+                              style={{
+                                background: 'none', border: 'none',
+                                color: T.accent, cursor: 'pointer',
+                                fontSize: 12, padding: 0,
+                              }}
+                            >
+                              + {overflow} more
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Netlify status code (faint) */}
+                      {log.netlify_response_code && (
+                        <div style={{ color: T.text3, fontSize: 11, flexShrink: 0 }}>
+                          {log.netlify_response_code === 200 ? '✓' : `HTTP ${log.netlify_response_code}`}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+
+            {deployLogs.length > deployLogsPage * DEPLOY_LOGS_PER_PAGE && (
+              <button
+                onClick={() => setDeployLogsPage(p => p + 1)}
+                style={{
+                  marginTop: 10,
+                  background: 'none',
+                  border: 'none',
+                  color: T.accent,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                }}
+                data-testid="deploy-history-show-more"
+              >
+                Show more
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Waitlist signups sheet (replaces the card view) */}

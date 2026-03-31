@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="cl-skin" cx="46%" cy="34%" r="64%">
+      <stop offset="0%" stop-color="#d4a47c"/>
+      <stop offset="65%" stop-color="#b87850"/>
+      <stop offset="100%" stop-color="#9a5e38"/>
+    </radialGradient>
+    <radialGradient id="cl-hair" cx="48%" cy="18%" r="70%">
+      <stop offset="0%" stop-color="#9a3810"/>
+      <stop offset="60%" stop-color="#6a2008"/>
+      <stop offset="100%" stop-color="#3a1004"/>
+    </radialGradient>
+    <linearGradient id="cl-blazer" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#b81e68"/>
+      <stop offset="100%" stop-color="#881050"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#db2777"/>
+
+  <!-- Blazer -->
+  <path d="M0,100 Q18,76 40,70 L50,75 L60,70 Q82,76 100,100Z" fill="url(#cl-blazer)"/>
+  <!-- Lapels — slightly open, creative touch -->
+  <path d="M40,70 L44,63 L50,70" fill="#a01858" stroke="#881048" stroke-width="0.5"/>
+  <path d="M60,70 L56,63 L50,70" fill="#a01858" stroke="#881048" stroke-width="0.5"/>
+  <!-- Shirt peek -->
+  <path d="M47,68 L50,63 L53,68" fill="#fde8f0" stroke="#f0c0d8" stroke-width="0.4"/>
+
+  <!-- Neck -->
+  <path d="M43,67 Q50,70 57,67 L57,74 Q50,76 43,74Z" fill="#ac6840"/>
+
+  <!-- Ears -->
+  <ellipse cx="30" cy="45" rx="4" ry="5" fill="#ac6840"/>
+  <ellipse cx="70" cy="45" rx="4" ry="5" fill="#ac6840"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="44" rx="20" ry="23" fill="url(#cl-skin)"/>
+
+  <!-- Hair — medium-length auburn, soft waves, loose and expressive -->
+  <!-- Base dome -->
+  <path d="M30,46 Q28,14 50,12 Q72,14 70,46 Q67,26 50,19 Q33,26 30,46Z"
+        fill="url(#cl-hair)"/>
+  <!-- Left wave sweeping down — visible volume -->
+  <path d="M30,32 Q25,42 27,56 Q28,60 30,62"
+        stroke="#6a2008" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.85"/>
+  <!-- Right wave -->
+  <path d="M70,32 Q75,42 73,56 Q72,60 70,62"
+        stroke="#6a2008" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.85"/>
+  <!-- Natural highlights in the waves -->
+  <path d="M32,34 Q28,44 30,58"
+        stroke="#b84018" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+  <path d="M68,34 Q72,44 70,58"
+        stroke="#b84018" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+  <!-- Top wave texture -->
+  <path d="M35,22 Q42,18 50,17 Q58,18 65,22"
+        stroke="#6a2008" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.45"/>
+
+  <!-- Eyebrows — expressive, slightly arched, shaped -->
+  <path d="M33,35.5 Q38.5,33 44,34.5" stroke="#3a1008" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M56,34.5 Q61.5,33 67,35.5" stroke="#3a1008" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes — expressive, bright, engaged -->
+  <ellipse cx="39" cy="41" rx="5.8" ry="4.2" fill="white"/>
+  <ellipse cx="61" cy="41" rx="5.8" ry="4.2" fill="white"/>
+  <!-- Upper lash line — slight wing -->
+  <path d="M33.2,38.8 Q39,36.5 44.8,38.8" stroke="#1a0808" stroke-width="1.3" fill="none"/>
+  <path d="M55.2,38.8 Q61,36.5 66.8,38.8" stroke="#1a0808" stroke-width="1.3" fill="none"/>
+  <!-- Iris — warm hazel-green -->
+  <circle cx="39" cy="41" r="3" fill="#3a5018"/>
+  <circle cx="61" cy="41" r="3" fill="#3a5018"/>
+  <!-- Pupil -->
+  <circle cx="39" cy="41" r="1.6" fill="#0a0804"/>
+  <circle cx="61" cy="41" r="1.6" fill="#0a0804"/>
+  <!-- Highlights -->
+  <circle cx="40.2" cy="39.8" r="1" fill="white" opacity="0.95"/>
+  <circle cx="62.2" cy="39.8" r="1" fill="white" opacity="0.95"/>
+  <circle cx="37.8" cy="42.2" r="0.5" fill="white" opacity="0.4"/>
+  <circle cx="59.8" cy="42.2" r="0.5" fill="white" opacity="0.4"/>
+
+  <!-- Nose — soft, feminine line -->
+  <path d="M48,50 L47.5,54" stroke="#906030" stroke-width="0.8" fill="none" stroke-linecap="round"/>
+  <path d="M52,50 L52.5,54" stroke="#906030" stroke-width="0.8" fill="none" stroke-linecap="round"/>
+  <path d="M46.5,54 Q50,56 53.5,54" stroke="#906030" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+
+  <!-- Mouth — slight knowing smile — she has an opinion and it's good -->
+  <path d="M43,59 Q46.5,62 50,61.5 Q53.5,62 57,59" stroke="#8a2838" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <!-- Lip color hint -->
+  <path d="M44,59 Q50,61.8 56,59" stroke="#c04060" stroke-width="0.7" fill="none" stroke-linecap="round" opacity="0.35"/>
+
+  <!-- Cheek warmth -->
+  <ellipse cx="33" cy="49" rx="5" ry="3" fill="#b86848" opacity="0.18"/>
+  <ellipse cx="67" cy="49" rx="5" ry="3" fill="#b86848" opacity="0.18"/>
+</svg>

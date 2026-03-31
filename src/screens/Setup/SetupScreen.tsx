@@ -1,7 +1,19 @@
 /**
  * SetupScreen — Builds 004 + 005
  *
- * Route: /projects/:id/setup
+ * @deprecated Build 056 — This screen is retired.
+ *
+ * The route /projects/:id/setup now redirects to /projects/:id (Project Hub).
+ * Active functionality has been migrated:
+ *   - Claude API Key + Default Model → Admin Console > AI Settings (Build 056)
+ *   - Auth setup → handled by login flow (/login)
+ *   - Screens/Sitemap stub → Screens Builder (/projects/:id/screens)
+ *   - Deploy stub → Infra Setup Wizard (/projects/:id/deploy, Build 053)
+ *
+ * This file is preserved for reference only. Do not add new features here.
+ * Remove in a future cleanup pass once confirmed no external links point to /setup.
+ *
+ * Route: /projects/:id/setup  ← REDIRECTS to /projects/:id (see App.tsx)
  *
  * A checklist-style wizard with collapsible sections:
  *   s1 — Auth Setup         (Build 005)

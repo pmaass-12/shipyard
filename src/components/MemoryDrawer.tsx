@@ -33,6 +33,18 @@ import {
   deleteMemoryFact,
   subscribeToMemoryFacts,
 } from '@/api/projectMemory';
+import { supabase } from '@/lib/supabase';
+
+// ── Compaction types ───────────────────────────────────────────────────────
+
+interface CompactedThread {
+  id:          string;
+  summary:     string;
+  covers_from: string;
+  covers_to:   string;
+  message_count: number;
+  created_at:  string;
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -364,6 +376,12 @@ export default function MemoryDrawer({
   }>({ open: false, editing: null, prefill: null });
   const [undoQueue,   setUndoQueue]   = useState<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+  // ── Pass 2: compaction state ──────────────────────────────────────────────
+  const [uncompactedCount,   setUncompactedCount]   = useState<number | null>(null);
+  const [compactedThreads,   setCompactedThreads]   = useState<CompactedThread[]>([]);
+  const [runningCompaction,  setRunningCompaction]  = useState(false);
+  const [compactionError,    setCompactionError]    = useState<string | null>(null);
+
   // Load all facts
   useEffect(() => {
     let cancelled = false;
@@ -393,6 +411,80 @@ export default function MemoryDrawer({
       }
     });
     return unsub;
+  }, [projectId]);
+
+  // Load compaction data — uncompacted message count + existing summaries
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCompactionData() {
+      // Uncompacted message count
+      const { data: uncompacted } = await supabase
+        .from('pm_chat_messages')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('compacted', false);
+
+      // Compacted thread summaries for this project
+      const { data: threads } = await supabase
+        .from('compacted_threads')
+        .select('id, summary, covers_from, covers_to, message_count, created_at')
+        .eq('project_id', projectId)
+        .order('covers_from', { ascending: true });
+
+      if (!cancelled) {
+        setUncompactedCount(uncompacted?.length ?? 0);
+        setCompactedThreads((threads as CompactedThread[]) ?? []);
+      }
+    }
+
+    loadCompactionData().catch(console.error);
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  // Run compaction now — calls compact-reeve-thread with this project_id
+  const handleRunCompaction = useCallback(async () => {
+    setRunningCompaction(true);
+    setCompactionError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/compact-reeve-thread`,
+        {
+          method:  'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          },
+          body: JSON.stringify({ project_id: projectId }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`);
+      }
+
+      // Reload compaction data after successful run
+      const { data: uncompacted } = await supabase
+        .from('pm_chat_messages')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('compacted', false);
+
+      const { data: threads } = await supabase
+        .from('compacted_threads')
+        .select('id, summary, covers_from, covers_to, message_count, created_at')
+        .eq('project_id', projectId)
+        .order('covers_from', { ascending: true });
+
+      setUncompactedCount(uncompacted?.length ?? 0);
+      setCompactedThreads((threads as CompactedThread[]) ?? []);
+    } catch (err) {
+      setCompactionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRunningCompaction(false);
+    }
   }, [projectId]);
 
   // Open save modal if initialSave is provided (from proactive Morgan suggestion)
@@ -656,37 +748,94 @@ export default function MemoryDrawer({
           ))}
         </div>
 
-        {/* Compaction status (Pass 2 — placeholder) */}
+        {/* Compaction status — Pass 2 */}
         <div
           data-testid="memory-compaction-status"
           style={{
-            borderTop:    '1px solid #E2E8F0',
-            padding:      '12px 14px',
-            flexShrink:   0,
+            borderTop:       '1px solid #E2E8F0',
+            padding:         '12px 14px',
+            flexShrink:      0,
             backgroundColor: '#F8FAFC',
           }}
         >
-          <p style={{ margin: '0 0 2px', fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Conversation History
           </p>
-          <p style={{ margin: '0 0 8px', fontSize: 12, color: '#94A3B8' }}>
-            Compaction coming soon — older messages will be summarised automatically.
-          </p>
+
+          {/* Message count + threshold status */}
+          {uncompactedCount !== null && (
+            <p
+              data-testid="memory-compaction-count"
+              style={{ margin: '0 0 6px', fontSize: 12, color: uncompactedCount > 60 ? '#92400E' : '#64748B' }}
+            >
+              {uncompactedCount > 60
+                ? `${uncompactedCount} messages — compaction threshold reached`
+                : `${uncompactedCount} message${uncompactedCount !== 1 ? 's' : ''} — below compaction threshold`}
+              {compactedThreads.length > 0 && (
+                <span style={{ color: '#94A3B8' }}>
+                  {' · '}{compactedThreads.length} batch{compactedThreads.length !== 1 ? 'es' : ''} already compacted
+                </span>
+              )}
+            </p>
+          )}
+
+          {/* Existing compacted summaries */}
+          {compactedThreads.length > 0 && (
+            <div
+              data-testid="memory-compacted-summaries"
+              style={{ marginBottom: 8 }}
+            >
+              {compactedThreads.map((thread) => (
+                <div
+                  key={thread.id}
+                  data-testid={`memory-compacted-summary-${thread.id}`}
+                  style={{
+                    marginBottom:    6,
+                    padding:         '6px 8px',
+                    backgroundColor: '#EFF6FF',
+                    borderRadius:    6,
+                    border:          '1px solid #DBEAFE',
+                  }}
+                >
+                  <p style={{ margin: '0 0 2px', fontSize: 10, fontWeight: 700, color: '#1D4ED8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {new Date(thread.covers_from).toLocaleDateString()} — {new Date(thread.covers_to).toLocaleDateString()}
+                    {' · '}{thread.message_count} messages
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, color: '#1E3A5F', lineHeight: 1.45 }}>
+                    {thread.summary.substring(0, 200)}{thread.summary.length > 200 ? '…' : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Error message */}
+          {compactionError && (
+            <p style={{ margin: '0 0 6px', fontSize: 11, color: '#DC2626' }}>
+              Compaction failed: {compactionError}
+            </p>
+          )}
+
+          {/* Run button — enabled when > 60 messages or summaries exist (manual re-run) */}
           <button
             data-testid="memory-compaction-run-btn"
-            disabled
-            title="Available in Pass 2"
+            onClick={handleRunCompaction}
+            disabled={runningCompaction || (uncompactedCount !== null && uncompactedCount <= 60 && compactedThreads.length === 0)}
             style={{
               padding:         '5px 10px',
-              border:          '1px solid #E2E8F0',
+              border:          '1px solid #CBD5E1',
               borderRadius:    6,
-              backgroundColor: '#F1F5F9',
+              backgroundColor: runningCompaction ? '#F1F5F9' :
+                               (uncompactedCount !== null && uncompactedCount > 60) ? '#EFF6FF' : '#F1F5F9',
               fontSize:        12,
-              color:           '#94A3B8',
-              cursor:          'not-allowed',
+              color:           runningCompaction ? '#94A3B8' :
+                               (uncompactedCount !== null && uncompactedCount > 60) ? '#1D4ED8' : '#94A3B8',
+              cursor:          (runningCompaction || (uncompactedCount !== null && uncompactedCount <= 60 && compactedThreads.length === 0))
+                               ? 'not-allowed' : 'pointer',
+              transition:      'all 0.15s',
             }}
           >
-            Run compaction now
+            {runningCompaction ? 'Compacting…' : 'Run compaction now'}
           </button>
         </div>
       </div>

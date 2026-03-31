@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="rd-skin" cx="46%" cy="35%" r="63%">
+      <stop offset="0%" stop-color="#e8c8a0"/>
+      <stop offset="65%" stop-color="#d0a070"/>
+      <stop offset="100%" stop-color="#b07848"/>
+    </radialGradient>
+    <radialGradient id="rd-hair" cx="44%" cy="22%" r="68%">
+      <stop offset="0%" stop-color="#6a3e1a"/>
+      <stop offset="100%" stop-color="#3a1e08"/>
+    </radialGradient>
+    <linearGradient id="rd-blazer" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c85010"/>
+      <stop offset="100%" stop-color="#902e08"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#ea580c"/>
+
+  <!-- Blazer -->
+  <path d="M0,100 Q18,76 40,70 L50,75 L60,70 Q82,76 100,100Z" fill="url(#rd-blazer)"/>
+  <!-- Lapels -->
+  <path d="M40,70 L45,65 L50,70" fill="#b04010" stroke="#903008" stroke-width="0.5"/>
+  <path d="M60,70 L55,65 L50,70" fill="#b04010" stroke="#903008" stroke-width="0.5"/>
+  <!-- Shirt collar -->
+  <path d="M47,68 L50,64 L53,68" fill="#f0ece8" stroke="#d8c8b8" stroke-width="0.4"/>
+
+  <!-- Neck -->
+  <path d="M43,67 Q50,70 57,67 L57,74 Q50,76 43,74Z" fill="#c08050"/>
+
+  <!-- Ears -->
+  <ellipse cx="30" cy="45" rx="4" ry="5" fill="#c08050"/>
+  <ellipse cx="70" cy="45" rx="4" ry="5" fill="#c08050"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="44" rx="21" ry="23" fill="url(#rd-skin)"/>
+
+  <!-- Hair — neat, side-parted, slightly wavy on top -->
+  <path d="M30,47 Q28,17 50,14 Q72,17 70,47 Q67,28 52,21 Q36,26 30,47Z"
+        fill="url(#rd-hair)"/>
+  <!-- Side part — clean left part -->
+  <path d="M36,20 Q39,18 42,19" stroke="#3a1e08" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <!-- Natural wave texture -->
+  <path d="M40,19 Q48,17 56,20 Q63,23 66,28"
+        stroke="#3a1e08" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+
+  <!-- Eyebrows — straight, precise, a little knit together -->
+  <path d="M33,35.5 Q38.5,34 44,35" stroke="#3a1808" stroke-width="2.1" fill="none" stroke-linecap="round"/>
+  <path d="M56,35 Q61.5,34 67,35.5" stroke="#3a1808" stroke-width="2.1" fill="none" stroke-linecap="round"/>
+
+  <!-- Glasses frames — thin wire, analytical -->
+  <rect x="31.5" y="37" width="16" height="10" rx="3" ry="3" fill="none" stroke="#3a2808" stroke-width="1.4"/>
+  <rect x="52.5" y="37" width="16" height="10" rx="3" ry="3" fill="none" stroke="#3a2808" stroke-width="1.4"/>
+  <!-- Nose bridge of glasses -->
+  <path d="M47.5,42 Q50,41 52.5,42" stroke="#3a2808" stroke-width="1.2" fill="none"/>
+  <!-- Temples -->
+  <path d="M31.5,42 Q28,43 27,44" stroke="#3a2808" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <path d="M68.5,42 Q72,43 73,44" stroke="#3a2808" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes -->
+  <ellipse cx="39.5" cy="41.5" rx="5" ry="3.5" fill="white"/>
+  <ellipse cx="60.5" cy="41.5" rx="5" ry="3.5" fill="white"/>
+  <!-- Iris — steady, observant hazel-brown -->
+  <circle cx="39.5" cy="41.5" r="2.6" fill="#3a2210"/>
+  <circle cx="60.5" cy="41.5" r="2.6" fill="#3a2210"/>
+  <!-- Pupil -->
+  <circle cx="39.5" cy="41.5" r="1.4" fill="#0a0808"/>
+  <circle cx="60.5" cy="41.5" r="1.4" fill="#0a0808"/>
+  <!-- Highlights -->
+  <circle cx="40.6" cy="40.4" r="0.9" fill="white" opacity="0.9"/>
+  <circle cx="61.6" cy="40.4" r="0.9" fill="white" opacity="0.9"/>
+
+  <!-- Nose -->
+  <path d="M48,50 L47.5,54" stroke="#906030" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M52,50 L52.5,54" stroke="#906030" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M46.5,54 Q50,56 53.5,54" stroke="#906030" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Mouth — measured, thoughtful, slight compress -->
+  <path d="M43,59 Q47,61 50,60.5 Q53,61 57,59" stroke="#804020" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+
+  <!-- Subtle cheek warmth -->
+  <ellipse cx="34" cy="49" rx="5" ry="3" fill="#c07848" opacity="0.14"/>
+  <ellipse cx="66" cy="49" rx="5" ry="3" fill="#c07848" opacity="0.14"/>
+</svg>

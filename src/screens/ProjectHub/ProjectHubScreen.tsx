@@ -25,6 +25,7 @@ import ProjectHealthBadge from '@/components/ProjectHealthBadge';
 import RegressionCard from '@/components/RegressionCard';
 import HealthReportCard from '@/components/HealthReportCard';
 import { isFirstRunMode, completeFirstRun } from '@/api/firstRun';
+import FeatureCreationSheet from '@/components/FeatureCreationSheet'; // Build 054
 
 // ── Phase badge ────────────────────────────────────────────────────────────
 
@@ -241,7 +242,9 @@ interface NavCardDef {
   lockReason?: string;
 }
 
+// Build 055: canonical ordering — core loop first, shipping second, settings collapsed
 const NAV_CARDS: NavCardDef[] = [
+  // ── Row 1: core building loop ──
   {
     id: 'screens', testId: 'nav-screens', emoji: '🖥', title: 'Screens', description: "Map your app's screens and sitemap.",
     href: (id) => `/projects/${id}/screens`,
@@ -253,18 +256,73 @@ const NAV_CARDS: NavCardDef[] = [
     badgeCount: (s) => s.feature_count || null,
   },
   {
-    id: 'bugs', testId: 'nav-bugs', emoji: '🐛', title: 'Bugs', description: 'Track and resolve open issues.',
-    href: (id) => `/projects/${id}/bugs`,
-    badgeCount: (s) => s.open_bug_count || null,
-  },
-  {
-    id: 'change-requests', testId: 'nav-change-requests', emoji: '📋', title: 'Change Requests', description: 'Review user feedback and requests.',
+    id: 'change-requests', testId: 'nav-change-requests', emoji: '📋', title: 'Changes', description: 'Review user feedback and requests.',
     href: (id) => `/projects/${id}/change-requests`,
     badgeCount: (s) => s.pending_cr_count || null,
   },
   {
+    id: 'bugs', testId: 'nav-bugs', emoji: '🐛', title: 'Bugs', description: 'Track and resolve open issues.',
+    href: (id) => `/projects/${id}/bugs`,
+    badgeCount: (s) => s.open_bug_count || null,
+  },
+  // ── Row 2: shipping ──
+  {
+    id: 'deployments', testId: 'nav-deployments', emoji: '🚀', title: 'Deploy', description: 'Infrastructure and production deploys.',
+    href: (id) => `/projects/${id}/deploy`,
+    badgeCount: (s) => s.deployment_count || null,
+  },
+  {
+    id: 'analytics', testId: 'nav-analytics', emoji: '📊', title: 'Analytics', description: 'Usage, retention, and funnel metrics.',
+    href: (id) => `/projects/${id}/analytics`,
+  },
+  {
+    id: 'artifacts', testId: 'nav-artifacts', emoji: '📦', title: 'Artifacts', description: 'Architecture docs and generated files.',
+    href: (id) => `/projects/${id}/artifacts`,
+  },
+  {
+    id: 'documents', testId: 'nav-documents', emoji: '📄', title: 'Documents', description: 'Supporting docs and references.',
+    href: (id) => `/projects/${id}/documents`,
+  },
+  // Build 061: Design Gallery + Prototype Viewer
+  {
+    id: 'gallery', testId: 'nav-gallery', emoji: '🖼️', title: 'Design Gallery', description: 'Screen mockups and interactive flow map.',
+    href: (id) => `/projects/${id}/gallery`,
+  },
+];
+
+// Build 055: Settings & integrations — collapsed by default
+const SETTINGS_CARDS: NavCardDef[] = [
+  {
     id: 'seo-aeo', testId: 'nav-seo', emoji: '🔍', title: 'SEO / AEO', description: 'Optimize for search and AI discovery.',
     href: (id) => `/projects/${id}/seo`,
+  },
+  {
+    id: 'billing', testId: 'nav-billing', emoji: '💳', title: 'Billing', description: 'Manage your subscription and payments.',
+    href: (id) => `/projects/${id}/billing`,
+  },
+  {
+    id: 'domain', testId: 'nav-domain', emoji: '🌐', title: 'Domain', description: 'Custom domain and DNS settings.',
+    href: (id) => `/projects/${id}/domain`,
+  },
+  {
+    id: 'email', testId: 'nav-email', emoji: '✉️', title: 'Email', description: 'Transactional and marketing email.',
+    href: (id) => `/projects/${id}/email`,
+  },
+  {
+    id: 'adsense', testId: 'nav-adsense', emoji: '📣', title: 'AdSense', description: 'Google AdSense ad placements.',
+    href: (id) => `/projects/${id}/adsense`,
+  },
+  {
+    id: 'promo', testId: 'nav-promo', emoji: '🎯', title: 'Promo', description: 'Promo site and landing page.',
+    href: (id) => `/projects/${id}/promo`,
+  },
+  {
+    id: 'usage', testId: 'nav-usage', emoji: '🔢', title: 'Usage', description: 'API and token consumption.',
+    href: (id) => `/projects/${id}/usage`,
+  },
+  {
+    id: 'github', testId: 'nav-github', emoji: '🐙', title: 'GitHub', description: 'Repository and branch settings.',
+    href: (id) => `/projects/${id}/github`,
   },
   {
     id: 'admin-console', testId: 'nav-admin', emoji: '⚙️', title: 'Admin Console', description: 'User management and platform settings.',
@@ -273,15 +331,122 @@ const NAV_CARDS: NavCardDef[] = [
     lockReason: 'Unlocks in Beta',
   },
   {
-    id: 'deployments', testId: 'nav-deployments', emoji: '🚀', title: 'Deployments', description: 'Track builds and production deploys.',
-    href: (id) => `/projects/${id}/deployments`,
-    badgeCount: (s) => s.deployment_count || null,
-  },
-  {
     id: 'data-schema', testId: 'nav-data-schema', emoji: '🗄', title: 'Data Schema', description: 'View and manage your database tables.',
     href: (id) => `/projects/${id}/schema`,
   },
 ];
+
+// ── Stage banner ────────────────────────────────────────────────────────────
+
+type Stage = 'setup' | 'designing' | 'building' | 'deploying' | 'live';
+
+// Build 055 — stage detection (Finn)
+// Priority order: live → deploying → building → designing → setup
+// Spec: https://github.com/shipyard/specs/055-project-hub-guided-READY.md
+function detectStage(project: Project, stats: ProjectHubStats): Stage {
+  // live: project has been pushed to production at least once
+  if (project.pushed_to_production_at) return 'live';
+
+  // deploying: project is on beta phase (infra connected, ready to push)
+  // Full spec condition is "all features shipped + infra not connected" — approximated
+  // here until project_hub_stats carries per-step feature counts (Sage follow-up)
+  if (project.phase === 'beta') return 'deploying';
+
+  // building: any features exist and the project has been deployed at least once (alpha)
+  // Full spec: ≥1 feature at pipeline_step 3–5 (code/preview/QA)
+  if (stats.feature_count > 0 && stats.deployment_count > 0) return 'building';
+
+  // designing: screens have been defined and features exist
+  // Full spec: screens defined + ≥1 feature at pipeline_step 1–2 (design/schema)
+  if (stats.screen_count > 0 && stats.feature_count > 0) return 'designing';
+
+  // setup: no screens yet
+  return 'setup';
+}
+
+const STAGE_META: Record<Stage, { emoji: string; label: string; tip: string; color: string }> = {
+  setup:     { emoji: '🛠',  label: 'Setup',     tip: 'Add your first screens and features to get started.',             color: '#6e6e80' },
+  designing: { emoji: '✏️', label: 'Designing',  tip: "You're mapping out features. Head to Screens to keep going.",     color: '#5b5bd6' },
+  building:  { emoji: '⚙️', label: 'Building',   tip: 'Features are in progress. Check Bugs and Changes regularly.',     color: '#ff9f0a' },
+  deploying: { emoji: '🚀', label: 'Deploying',  tip: 'Almost live! Connect your infra and prepare for launch.',         color: '#0a84ff' },
+  live:      { emoji: '🟢', label: 'Live',        tip: "You're live! Keep shipping features and monitoring health.",      color: '#30d158' },
+};
+
+function StageBanner({ project, stats }: { project: Project; stats: ProjectHubStats }) {
+  const stage = detectStage(project, stats);
+  const meta  = STAGE_META[stage];
+  return (
+    <div
+      data-testid="stage-banner"
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 16px', borderRadius: 10, marginBottom: 16,
+        border: `1px solid ${meta.color}33`,
+        backgroundColor: `${meta.color}11`,
+      }}
+    >
+      <span style={{ fontSize: 18 }}>{meta.emoji}</span>
+      <div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: meta.color }}>{meta.label}</span>
+        <span style={{ fontSize: 13, color: 'var(--color-text-muted)', marginLeft: 8 }}>{meta.tip}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Active feature card ──────────────────────────────────────────────────────
+
+interface ActiveFeatureDef {
+  id:     string;
+  name:   string;
+  status: string;
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  design: '#5b5bd6',
+  build:  '#ff9f0a',
+  review: '#0a84ff',
+  done:   '#30d158',
+};
+
+function ActiveFeatureCard({
+  feature,
+  projectId,
+}: {
+  feature:   ActiveFeatureDef;
+  projectId: string;
+}) {
+  const color = STATUS_COLOR[feature.status] ?? '#6e6e80';
+  return (
+    <a
+      data-testid="active-feature-card"
+      href={`/projects/${projectId}/features/${feature.id}`}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 16px', borderRadius: 10, marginBottom: 16,
+        border: `1px solid ${color}33`, backgroundColor: `${color}0d`,
+        textDecoration: 'none',
+      }}
+    >
+      <div>
+        <span style={{ fontSize: 11, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Active feature
+        </span>
+        <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 600, color: 'var(--color-text)' }}>
+          {feature.name}
+        </p>
+      </div>
+      <span style={{
+        fontSize: 11, padding: '3px 8px', borderRadius: 6,
+        backgroundColor: color, color: '#fff', fontWeight: 700, textTransform: 'capitalize',
+      }}>
+        {feature.status}
+      </span>
+    </a>
+  );
+}
+
+// ── Nav card ───────────────────────────────────────────────────────────────
 
 function NavCard({
   card, project, stats,
@@ -498,16 +663,24 @@ export default function ProjectHubScreen() {
   const [tasks,       setTasks]       = useState<HumanTask[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [isFirstRun,  setIsFirstRun]  = useState(false);
+  const [hasClaudeKey, setHasClaudeKey] = useState<boolean | undefined>(undefined); // Build 056
 
   // ── Inline edit state ────────────────────────────────────────────────────
   const [editingField,    setEditingField]    = useState<string | null>(null);
   const [editName,        setEditName]        = useState('');
   const [editDesc,        setEditDesc]        = useState('');
   const [savingField,     setSavingField]     = useState<string | null>(null);
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showLaunchModal, setShowLaunchModal] = useState(false);
-  const [showPmChat,      setShowPmChat]      = useState(false);
+  const [showColorPicker,   setShowColorPicker]   = useState(false);
+  const [showLaunchModal,   setShowLaunchModal]   = useState(false);
+  const [showPmChat,        setShowPmChat]        = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+
+  // Build 055
+  const [settingsExpanded, setSettingsExpanded] = useState<boolean>(() => {
+    try { return localStorage.getItem('hub-settings-expanded') === 'true'; } catch { return false; }
+  });
+  const [featureSheetOpen, setFeatureSheetOpen] = useState(false);
+  const [activeFeature,    setActiveFeature]    = useState<ActiveFeatureDef | null>(null);
 
   async function saveProjectField(field: string, value: unknown) {
     if (!projectId) return;
@@ -537,6 +710,25 @@ export default function ProjectHubScreen() {
       setTasks(t);
       // Detect first-run mode (Build 044)
       setIsFirstRun(isFirstRunMode(p, s.feature_count, s.screen_count));
+
+      // Build 056: check whether Claude API key is configured
+      const { data: aiSettings } = await supabase
+        .from('project_settings')
+        .select('claude_api_key')
+        .eq('project_id', projectId)
+        .maybeSingle();
+      setHasClaudeKey(Boolean(aiSettings?.claude_api_key));
+
+      // Build 055: fetch most recent in-progress feature for ActiveFeatureCard
+      const { data: af } = await supabase
+        .from('features')
+        .select('id, name, status')
+        .eq('project_id', projectId)
+        .in('status', ['design', 'build', 'review'])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setActiveFeature(af as ActiveFeatureDef | null);
     } catch (err) {
       console.error(err);
     } finally {
@@ -545,6 +737,11 @@ export default function ProjectHubScreen() {
   }
 
   useEffect(() => { load(); }, [projectId]);
+
+  // Build 055: persist settings-section collapse state
+  useEffect(() => {
+    try { localStorage.setItem('hub-settings-expanded', String(settingsExpanded)); } catch { /* ignore */ }
+  }, [settingsExpanded]);
 
   // Build 044: handle first-run completion
   const handleFirstRunComplete = async () => {
@@ -772,6 +969,7 @@ export default function ProjectHubScreen() {
           projectName={project.name}
           description={project.description}
           onComplete={handleFirstRunComplete}
+          hasClaudeKey={hasClaudeKey}
         />
       )}
 
@@ -908,15 +1106,73 @@ export default function ProjectHubScreen() {
       {/* ── Setup checklist ── */}
       <SetupChecklist project={project} stats={stats} />
 
-      {/* ── Nav grid ── */}
+      {/* ── Stage banner — Build 055 ── */}
+      <StageBanner project={project} stats={stats} />
+
+      {/* ── Active feature card — Build 055 ── */}
+      {activeFeature && (
+        <ActiveFeatureCard feature={activeFeature} projectId={project.id} />
+      )}
+
+      {/* ── Nav grid header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-muted)' }}>Quick actions</span>
+        <button
+          data-testid="new-feature-btn"
+          onClick={() => setFeatureSheetOpen(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 14px', borderRadius: 8,
+            border: '1px solid var(--color-accent)',
+            backgroundColor: 'var(--color-accent-light)',
+            color: 'var(--color-accent)', fontSize: 13, fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          + New feature
+        </button>
+      </div>
+
+      {/* ── Nav grid (8 core cards) — Build 055 reorder ── */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
-        gap: 12, marginBottom: 28,
+        gap: 12, marginBottom: 16,
       }}>
         {NAV_CARDS.map((card) => (
           <NavCard key={card.id} card={card} project={project} stats={stats} />
         ))}
+      </div>
+
+      {/* ── Settings & integrations (collapsible) — Build 055 ── */}
+      <div style={{ marginBottom: 28 }}>
+        <button
+          data-testid="settings-section-toggle"
+          onClick={() => setSettingsExpanded((v) => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '8px 4px', fontSize: 13, fontWeight: 600,
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          <span style={{
+            fontSize: 10, display: 'inline-block', transition: 'transform 0.2s',
+            transform: settingsExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          }}>▶</span>
+          Settings &amp; integrations
+        </button>
+        {settingsExpanded && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+            gap: 12, marginTop: 8,
+          }}>
+            {SETTINGS_CARDS.map((card) => (
+              <NavCard key={card.id} card={card} project={project} stats={stats} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Regression Card — Build 042 ── */}
@@ -984,6 +1240,14 @@ export default function ProjectHubScreen() {
           onClose={() => setShowPmChat(false)}
         />
       )}
+
+      {/* ── Feature Creation Sheet — Build 054/055 ── */}
+      <FeatureCreationSheet
+        isOpen={featureSheetOpen}
+        onClose={() => setFeatureSheetOpen(false)}
+        projectId={project.id}
+        onCreated={() => load()}
+      />
     </div>
   );
 }

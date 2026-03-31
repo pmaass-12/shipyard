@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="sl-skin" cx="46%" cy="35%" r="63%">
+      <stop offset="0%" stop-color="#c8845a"/>
+      <stop offset="65%" stop-color="#a86038"/>
+      <stop offset="100%" stop-color="#8a4a24"/>
+    </radialGradient>
+    <radialGradient id="sl-hair" cx="50%" cy="20%" r="68%">
+      <stop offset="0%" stop-color="#1a0a08"/>
+      <stop offset="100%" stop-color="#0a0404"/>
+    </radialGradient>
+    <linearGradient id="sl-blazer" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c01840"/>
+      <stop offset="100%" stop-color="#8a0e2c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#e11d48"/>
+
+  <!-- Blazer / sharp, polished -->
+  <path d="M0,100 Q18,76 40,70 L50,75 L60,70 Q82,76 100,100Z" fill="url(#sl-blazer)"/>
+  <!-- Crisp lapels -->
+  <path d="M40,70 L45,63 L50,70" fill="#a81838" stroke="#901428" stroke-width="0.5"/>
+  <path d="M60,70 L55,63 L50,70" fill="#a81838" stroke="#901428" stroke-width="0.5"/>
+  <!-- Shirt collar peek -->
+  <path d="M47,68 L50,64 L53,68" fill="#f8e8ec" stroke="#e0b0bc" stroke-width="0.4"/>
+
+  <!-- Neck -->
+  <path d="M43,67 Q50,70 57,67 L57,74 Q50,76 43,74Z" fill="#9a5830"/>
+
+  <!-- Ears -->
+  <ellipse cx="30" cy="45" rx="4" ry="5" fill="#9a5830"/>
+  <ellipse cx="70" cy="45" rx="4" ry="5" fill="#9a5830"/>
+  <!-- Small stud earrings — confident detail -->
+  <circle cx="30" cy="46" r="2" fill="#e11d48"/>
+  <circle cx="70" cy="46" r="2" fill="#e11d48"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="44" rx="21" ry="23" fill="url(#sl-skin)"/>
+
+  <!-- Hair — sleek, straight, pulled-back sides; full on top -->
+  <path d="M30,46 Q28,16 50,13 Q72,16 70,46 Q67,27 50,20 Q33,27 30,46Z"
+        fill="url(#sl-hair)"/>
+  <!-- Side tuck — pulled neatly behind right ear -->
+  <path d="M70,36 Q73,42 70,48" stroke="#0a0404" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Hair volume line -->
+  <path d="M34,25 Q42,22 50,21 Q58,22 66,25"
+        stroke="#0a0404" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.35"/>
+
+  <!-- Eyebrows — strong, defined, slightly arched — authority + intention -->
+  <path d="M33,35 Q38.5,32.5 44,34" stroke="#0a0408" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M56,34 Q61.5,32.5 67,35" stroke="#0a0408" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes — sharp, direct, takes in the whole room -->
+  <ellipse cx="39" cy="41" rx="5.8" ry="4" fill="white"/>
+  <ellipse cx="61" cy="41" rx="5.8" ry="4" fill="white"/>
+  <!-- Upper eyelid — slightly narrowed, sharp -->
+  <path d="M33.2,39 Q39,36.8 44.8,39" stroke="#0a0408" stroke-width="1.4" fill="none"/>
+  <path d="M55.2,39 Q61,36.8 66.8,39" stroke="#0a0408" stroke-width="1.4" fill="none"/>
+  <!-- Iris — deep, dark, focused -->
+  <circle cx="39" cy="41" r="3" fill="#1a0808"/>
+  <circle cx="61" cy="41" r="3" fill="#1a0808"/>
+  <!-- Pupil -->
+  <circle cx="39" cy="41" r="1.6" fill="#080404"/>
+  <circle cx="61" cy="41" r="1.6" fill="#080404"/>
+  <!-- Highlight -->
+  <circle cx="40.2" cy="39.8" r="1" fill="white" opacity="0.95"/>
+  <circle cx="62.2" cy="39.8" r="1" fill="white" opacity="0.95"/>
+  <circle cx="37.8" cy="42.2" r="0.5" fill="white" opacity="0.4"/>
+  <circle cx="59.8" cy="42.2" r="0.5" fill="white" opacity="0.4"/>
+
+  <!-- Nose — clean, strong bridge -->
+  <path d="M48,50 L47.5,54" stroke="#8a5028" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M52,50 L52.5,54" stroke="#8a5028" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M46.5,54 Q50,56 53.5,54" stroke="#8a5028" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Mouth — set, decisive, a smile ready just beneath the surface -->
+  <path d="M42.5,59 Q47,61.5 50,61 Q53,61.5 57.5,59" stroke="#781828" stroke-width="1.9" fill="none" stroke-linecap="round"/>
+
+  <!-- Subtle cheek warmth -->
+  <ellipse cx="33" cy="49" rx="5" ry="3" fill="#b06040" opacity="0.15"/>
+  <ellipse cx="67" cy="49" rx="5" ry="3" fill="#b06040" opacity="0.15"/>
+</svg>

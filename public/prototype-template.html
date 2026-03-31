@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shipyard — Interactive Prototype</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --chrome: #1c1c1e;
+    --chrome2: #2c2c2e;
+    --chrome3: #3a3a3c;
+    --border: rgba(255,255,255,0.08);
+    --text: #f5f5f7;
+    --muted: #8e8e93;
+    --accent: #5b5bd6;
+    --accent2: #7c7ce0;
+    --topbar: 48px;
+    --sidebar: 240px;
+  }
+
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: var(--chrome); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* ── Top Bar ── */
+  #topbar {
+    height: var(--topbar);
+    background: var(--chrome);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; padding: 0 16px;
+    flex-shrink: 0; z-index: 100;
+  }
+  #topbar .logo { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  #topbar .logo span { background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em; }
+  #topbar .sep { width: 1px; height: 20px; background: var(--border); }
+  #topbar .screen-nav { display: flex; align-items: center; gap: 8px; }
+  #topbar .screen-nav button { background: var(--chrome3); border: none; color: var(--muted); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+  #topbar .screen-nav button:hover { background: var(--chrome3); color: var(--text); }
+  #topbar .screen-nav button:disabled { opacity: 0.3; cursor: default; }
+  #topbar #current-screen-name { font-size: 13px; color: var(--text); font-weight: 500; min-width: 180px; }
+  #topbar .spacer { flex: 1; }
+  #topbar .view-toggle { display: flex; gap: 4px; background: var(--chrome2); border-radius: 8px; padding: 3px; }
+  #topbar .view-toggle button { background: none; border: none; color: var(--muted); font-size: 12px; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.15s; }
+  #topbar .view-toggle button.active { background: var(--chrome3); color: var(--text); }
+  #topbar .zoom-controls { display: flex; align-items: center; gap: 6px; }
+  #topbar .zoom-controls button { background: var(--chrome2); border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  #topbar .zoom-controls button:hover { color: var(--text); }
+  #topbar #zoom-label { font-size: 12px; color: var(--muted); min-width: 36px; text-align: center; }
+  .kb { font-size: 10px; color: var(--muted); background: var(--chrome3); padding: 2px 5px; border-radius: 3px; font-family: monospace; }
+
+  /* ── Main layout ── */
+  #main { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: var(--sidebar);
+    background: var(--chrome);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    flex-shrink: 0; overflow: hidden;
+  }
+  #sidebar-header { padding: 12px; border-bottom: 1px solid var(--border); }
+  #search { width: 100%; background: var(--chrome2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px 7px 30px; font-size: 12px; outline: none; }
+  #search::placeholder { color: var(--muted); }
+  .search-wrap { position: relative; }
+  .search-wrap::before { content: '⌕'; position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+  #sidebar-tree { flex: 1; overflow-y: auto; padding: 8px 0; }
+  #sidebar-tree::-webkit-scrollbar { width: 4px; }
+  #sidebar-tree::-webkit-scrollbar-thumb { background: var(--chrome3); border-radius: 2px; }
+  .sidebar-group { margin-bottom: 4px; }
+  .sidebar-group-header { display: flex; align-items: center; gap: 6px; padding: 5px 12px; cursor: pointer; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; user-select: none; }
+  .sidebar-group-header:hover { color: var(--text); }
+  .sidebar-group-header .chevron { font-size: 8px; transition: transform 0.15s; }
+  .sidebar-group-header.collapsed .chevron { transform: rotate(-90deg); }
+  .sidebar-group-items { }
+  .sidebar-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 24px; cursor: pointer; font-size: 12px; color: var(--muted); border-radius: 0; transition: all 0.1s; border-left: 2px solid transparent; }
+  .sidebar-item:hover { background: var(--chrome2); color: var(--text); }
+  .sidebar-item.active { background: rgba(91,91,214,0.15); color: var(--accent2); border-left-color: var(--accent); }
+  .sidebar-item .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  #sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+  .stat-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .stat-row span:last-child { color: var(--text); font-weight: 500; }
+
+  /* ── Content area ── */
+  #content { flex: 1; overflow: hidden; position: relative; }
+
+  /* ── Flow Map ── */
+  #flow-map { width: 100%; height: 100%; overflow: hidden; background: var(--chrome); position: relative; cursor: grab; }
+  #flow-map:active { cursor: grabbing; }
+  #flow-canvas { position: absolute; transform-origin: 0 0; user-select: none; }
+  .flow-svg { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+
+  .flow-category-label {
+    position: absolute; font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); opacity: 0.5; pointer-events: none;
+  }
+
+  .flow-node {
+    position: absolute; width: 160px; height: 52px;
+    background: var(--chrome2); border: 1px solid var(--border);
+    border-radius: 10px; cursor: pointer;
+    display: flex; align-items: center; gap: 10px; padding: 0 14px;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .flow-node:hover { border-color: rgba(255,255,255,0.2); background: var(--chrome3); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+  .flow-node.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(91,91,214,0.3), 0 4px 16px rgba(0,0,0,0.5); }
+  .flow-node .node-icon { font-size: 16px; flex-shrink: 0; }
+  .flow-node .node-label { font-size: 11px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .flow-node .node-sub { font-size: 10px; color: var(--muted); }
+  .flow-node .node-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-left: auto; }
+
+  /* Minimap */
+  #minimap {
+    position: absolute; bottom: 20px; right: 20px;
+    width: 180px; height: 120px;
+    background: rgba(28,28,30,0.9); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+    backdrop-filter: blur(10px);
+  }
+  #minimap-canvas { width: 100%; height: 100%; }
+  #minimap-viewport {
+    position: absolute; border: 1px solid var(--accent);
+    background: rgba(91,91,214,0.1);
+    pointer-events: none;
+  }
+
+  /* ── Screen View ── */
+  #screen-view { width: 100%; height: 100%; display: none; flex-direction: column; }
+  #screen-view.active { display: flex; }
+  #screen-frame-wrap {
+    flex: 1; overflow: hidden; position: relative;
+    display: flex; align-items: flex-start; justify-content: center;
+    background: #111; padding: 20px;
+  }
+  #screen-iframe {
+    width: 1280px; height: 800px;
+    border: none; border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    transform-origin: top center;
+  }
+  #screen-nav-bar {
+    height: 60px; background: var(--chrome); border-top: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 20px; gap: 12px; flex-shrink: 0;
+  }
+  #screen-nav-bar .nav-label { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .nav-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav-pill {
+    background: var(--chrome2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 12px; font-size: 11px; font-weight: 500;
+    color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .nav-pill:hover { background: rgba(91,91,214,0.2); border-color: var(--accent); color: var(--text); }
+
+  /* Arrow label tooltip */
+  .arrow-label {
+    position: absolute; font-size: 9px; color: var(--muted);
+    background: var(--chrome2); border: 1px solid var(--border);
+    padding: 2px 6px; border-radius: 4px; pointer-events: none;
+    transform: translate(-50%, -50%); white-space: nowrap; opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  /* Keyboard hint */
+  #kb-hint {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 12px; align-items: center;
+    background: rgba(28,28,30,0.8); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 14px; font-size: 11px; color: var(--muted);
+    backdrop-filter: blur(10px); pointer-events: none;
+  }
+  #kb-hint span { display: flex; align-items: center; gap: 4px; }
+
+  /* Category colors */
+  .cat-public .node-dot { background: #34c759; }
+  .cat-onboarding .node-dot { background: #ff9f0a; }
+  .cat-core .node-dot { background: var(--accent); }
+  .cat-feedback .node-dot { background: #ff453a; }
+  .cat-analytics .node-dot { background: #64d2ff; }
+  .cat-admin .node-dot { background: #bf5af2; }
+
+  .cat-public { border-left: 3px solid #34c759; }
+  .cat-onboarding { border-left: 3px solid #ff9f0a; }
+  .cat-core { border-left: 3px solid var(--accent); }
+  .cat-feedback { border-left: 3px solid #ff453a; }
+  .cat-analytics { border-left: 3px solid #64d2ff; }
+  .cat-admin { border-left: 3px solid #bf5af2; }
+  .cat-distribute { border-left: 3px solid #00c7be; }
+  .cat-distribute .node-dot { background: #00c7be; }
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div id="topbar">
+  <div class="logo">
+    ⚓ Shipyard <span>PROTOTYPE</span>
+  </div>
+  <div class="sep"></div>
+  <div class="screen-nav">
+    <button id="btn-prev" onclick="navigateHistory(-1)" title="Previous (←)">‹</button>
+    <button id="btn-next" onclick="navigateHistory(1)" title="Next (→)">›</button>
+    <span id="current-screen-name">Flow Map</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="view-toggle">
+    <button class="active" id="btn-flow" onclick="setView('flow')">🗺 Flow Map</button>
+    <button id="btn-screen" onclick="setView('screen')">📱 Screen View</button>
+  </div>
+  <div class="sep"></div>
+  <div class="zoom-controls" id="zoom-controls">
+    <button onclick="adjustZoom(-0.1)" title="Zoom out">−</button>
+    <span id="zoom-label">70%</span>
+    <button onclick="adjustZoom(0.1)" title="Zoom in">+</button>
+    <button onclick="fitToView()" title="Fit (F)" style="width:auto;padding:0 8px;font-size:11px;">Fit</button>
+  </div>
+  <div class="kb">Esc = Flow Map</div>
+</div>
+
+<!-- Main -->
+<div id="main">
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <div class="search-wrap">
+        <input id="search" type="text" placeholder="Search screens…" oninput="filterSidebar(this.value)">
+      </div>
+    </div>
+    <div id="sidebar-tree"></div>
+    <div id="sidebar-footer">
+      <div class="stat-row"><span>Total screens</span><span id="stat-total">21</span></div>
+      <div class="stat-row"><span>Connected flows</span><span id="stat-connections">–</span></div>
+      <div class="stat-row"><span>Builds designed</span><span>57 / 60+</span></div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- Flow Map -->
+    <div id="flow-map">
+      <div id="flow-canvas">
+        <svg class="flow-svg" id="arrows-svg" width="2400" height="1400"></svg>
+        <!-- Nodes injected by JS -->
+      </div>
+      <div id="minimap">
+        <canvas id="minimap-canvas"></canvas>
+        <div id="minimap-viewport"></div>
+      </div>
+      <div id="kb-hint">
+        <span><kbd class="kb">Click</kbd> Open screen</span>
+        <span><kbd class="kb">Drag</kbd> Pan</span>
+        <span><kbd class="kb">Scroll</kbd> Zoom</span>
+        <span><kbd class="kb">F</kbd> Fit</span>
+        <span><kbd class="kb">Esc</kbd> Back to map</span>
+      </div>
+    </div>
+
+    <!-- Screen View -->
+    <div id="screen-view">
+      <div id="screen-frame-wrap">
+        <iframe id="screen-iframe" src="about:blank"></iframe>
+      </div>
+      <div id="screen-nav-bar">
+        <span class="nav-label">Navigate to →</span>
+        <div class="nav-pills" id="nav-pills"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+
+const SCREENS = [
+  // PUBLIC
+  { id: 'promo-site',        label: 'Promo Site',          sub: 'Build 029',  icon: '🌐', cat: 'public',     file: 'mockup-promo-site.html',         x: 60,   y: 80  },
+  { id: 'waitlist',          label: 'Waitlist Page',       sub: 'Build 011',  icon: '📋', cat: 'public',     file: 'mockup-waitlist.html',           x: 280,  y: 80  },
+  // ONBOARDING
+  { id: 'projects-list',     label: 'Projects List',       sub: 'Build 003 — Designer ✓ 2026-03-31', icon: '🏠', cat: 'onboarding', file: 'projects-list.html',             x: 60,   y: 230 },
+  { id: 'setup-wizard',      label: 'Setup Wizard',        sub: 'Build 032 — Designer ✓ 2026-03-31', icon: '🧙', cat: 'onboarding', file: 'mockup-setup-wizard.html',        x: 280,  y: 230 },
+  // Build 038 (Deploy Setup from wizard Screen 6) SUPERSEDED — entry point is now infra-setup (Build 053) "Set up infrastructure →" on Screen 5
+  // Build 024 (Edit Project Modal) CANCELLED — edit is now inline on Project Hub
+  // CORE BUILDER LOOP
+  { id: 'project-hub',       label: 'Project Hub',         sub: 'Build 014 + 055 — Designer ✓ 2026-03-31', icon: '⚡', cat: 'core', file: 'mockup-project-hub-guided.html', x: 60,   y: 400 },
+  { id: 'screens-builder',   label: 'Screens Builder',     sub: 'Build 015 + 054 — Designer ✓ 2026-03-31', icon: '🎨', cat: 'core', file: 'mockup-screens-builder.html',    x: 280,  y: 400 },
+  { id: 'feature-creation',  label: 'Feature Creation',    sub: 'Build 054 — Designer ✓ 2026-03-31', icon: '✨', cat: 'core',       file: 'mockup-feature-creation.html',   x: 500,  y: 550 },
+  { id: 'feature-board',    label: 'Feature Board',       sub: 'Build 058 + 059 — Designer ✓ 2026-03-31', icon: '🗂️', cat: 'core', file: 'mockup-feature-board.html',      x: 280,  y: 550 },
+  { id: 'feature-workflow',  label: 'Feature Workflow',    sub: 'Build 033',  icon: '⚙️', cat: 'core',       file: 'mockup-feature-workflow.html',   x: 500,  y: 400 },
+  { id: 'feature-phase',     label: 'Feature Phase',       sub: 'Build 007',  icon: '📊', cat: 'core',       file: 'mockup-feature-maturity.html',   x: 720,  y: 400 },
+  { id: 'design-gallery',    label: 'Design Gallery',      sub: 'Build 037 + 061 — Designer ✓ 2026-03-31', icon: '🖼️', cat: 'core', file: 'mockup-design-gallery.html', x: 940,  y: 400 },
+  { id: 'prototype-viewer',  label: 'Prototype Viewer',    sub: 'Build 061 — Designer ✓ 2026-03-31', icon: '🗺️', cat: 'core', file: null,                          x: 940,  y: 550 },
+  { id: 'deployed-app',      label: 'Deployed App',        sub: 'Build 006',  icon: '🚀', cat: 'core',       file: 'mockup-deployed-app-features.html', x: 1160, y: 400 },
+  // FEEDBACK & QA
+  // Build 012 (Change Requests) SUPERSEDED by Build 035 (Changes) — mockup pending Designer
+  { id: 'changes',           label: 'Changes',             sub: 'Build 035 — Designer ✓ 2026-03-29', icon: '✏️', cat: 'feedback', file: 'mockup-changes.html', x: 60,  y: 570 },
+  { id: 'global-bugs',       label: 'Global Bugs',         sub: 'Build 025',  icon: '🐛', cat: 'feedback',   file: 'mockup-global-bugs.html',        x: 280,  y: 570 },
+  { id: 'feedback-widget',   label: 'Feedback Widget',     sub: 'Build 002-fix — Designer ✓ 2026-03-29', icon: '⭐', cat: 'feedback', file: 'mockup-feedback-widget.html', x: 500, y: 570 },
+  { id: 'bug-reporter',      label: 'Bug Reporter Widget', sub: 'Build 002',  icon: '🔴', cat: 'feedback',   file: 'bug-reporter-widget.html',       x: 720,  y: 570 },
+  // ANALYTICS & DATA
+  { id: 'analytics',         label: 'Analytics',           sub: 'Build 017 — Designer ✓ 2026-03-29', icon: '📈', cat: 'analytics',  file: 'mockup-analytics.html',               x: 60,   y: 740 },
+  { id: 'token-usage',       label: 'Token Usage',         sub: 'Build 023',  icon: '💰', cat: 'analytics',  file: 'mockup-token-usage.html',             x: 280,  y: 740 },
+  { id: 'artifacts-panel',   label: 'Artifacts Panel',     sub: 'Build 026',  icon: '📁', cat: 'analytics',  file: 'mockup-artifacts-panel.html',         x: 500,  y: 740 },
+  { id: 'supporting-docs',   label: 'Supporting Docs',     sub: 'Build 030 — Designer ✓ 2026-03-29', icon: '📄', cat: 'analytics',  file: 'mockup-supporting-documents.html',     x: 720,  y: 740 },
+  // ADMIN CONSOLE
+  { id: 'human-tasks',       label: 'Human Tasks',         sub: 'Build 022',  icon: '✅', cat: 'admin',      file: 'mockup-human-tasks.html',        x: 60,   y: 910 },
+  { id: 'custom-domain',     label: 'Custom Domain',       sub: 'Build 018',  icon: '🌍', cat: 'admin',      file: 'mockup-custom-domain.html',      x: 280,  y: 910 },
+  { id: 'billing',           label: 'Billing',             sub: 'Build 020',  icon: '💳', cat: 'admin',      file: 'mockup-billing.html',            x: 500,  y: 910 },
+  { id: 'github',            label: 'GitHub Integration',  sub: 'Build 021',  icon: '🐙', cat: 'admin',      file: 'mockup-github-integration.html', x: 720,  y: 910 },
+  { id: 'email',             label: 'Transactional Email', sub: 'Build 019',  icon: '📧', cat: 'admin',      file: 'mockup-transactional-email.html',x: 940,  y: 910 },
+  { id: 'seo-aeo',           label: 'SEO / AEO',           sub: 'Build 010',  icon: '🔍', cat: 'admin',      file: 'mockup-seo-aeo.html',            x: 1160, y: 910 },
+  { id: 'adsense',           label: 'AdSense',             sub: 'Build 028 — Designer ✓ 2026-03-29', icon: '💵', cat: 'admin',      file: 'mockup-adsense.html',            x: 1380, y: 910 },
+  { id: 'contextual-help',  label: 'Contextual Help (ⓘ)', sub: 'Build 036 — Designer ✓ 2026-03-29', icon: '💡', cat: 'admin',      file: 'mockup-contextual-help.html',    x: 1600, y: 910 },
+  { id: 'admin-ai-settings', label: 'Admin AI Settings',  sub: 'Build 056 — Designer ✓ 2026-03-31', icon: '🤖', cat: 'admin',      file: 'mockup-admin-ai-settings.html',  x: 1820, y: 910 },
+  // ONBOARDING (continued)
+  { id: 'type-choice',      label: 'Project Type Choice', sub: 'Build 047',                          icon: '🔀', cat: 'onboarding', file: null,                              x: 280,  y: 155 },
+  { id: 'infra-setup',      label: 'Guided Infra Setup',  sub: 'Build 053 — Designer ✓ 2026-03-31', icon: '🏗️', cat: 'onboarding', file: 'mockup-deploy-setup-guided.html', x: 500,  y: 230 },
+  { id: 'deploy-setup',     label: 'Deploy Setup',        sub: 'Build 038 — Designer ✓ 2026-03-29', icon: '🔧', cat: 'onboarding', file: 'mockup-deploy-setup.html',       x: 720,  y: 230 },
+  // CORE (continued)
+  { id: 'named-team',       label: 'Named Team + PM Chat',sub: 'Build 040 — Designer ✓ 2026-03-29', icon: '👥', cat: 'core',       file: 'mockup-named-team.html',         x: 1380, y: 400 },
+  // ONBOARDING (continued)
+  { id: 'import-website',   label: 'Import Existing App', sub: 'Build 041 — Designer ✓ 2026-03-29', icon: '📥', cat: 'onboarding', file: 'mockup-import-website.html',     x: 940,  y: 230 },
+  // CORE (continued)
+  { id: 'project-health',   label: 'Project Health & Regression', sub: 'Build 042 — Designer ✓ 2026-03-29', icon: '🏥', cat: 'core', file: 'mockup-project-health.html',    x: 1600, y: 400 },
+  { id: 'project-memory',   label: 'Project Memory & General Chat', sub: 'Build 043 — Designer ✓ 2026-03-30', icon: '🧠', cat: 'core', file: 'mockup-project-memory.html',   x: 1600, y: 550 },
+  { id: 'first-run',        label: 'First-Run Experience',           sub: 'Build 044 — Designer ✓ 2026-03-30', icon: '🚀', cat: 'core', file: 'mockup-first-run.html',           x: 1800, y: 250 },
+  { id: 'team-chat',        label: 'Team Chat',                      sub: 'Build 049 — Designer ✓ 2026-03-30', icon: '💬', cat: 'core', file: 'mockup-team-chat.html',           x: 1800, y: 400 },
+  { id: 'mobile-chat',      label: 'Mobile Chat-First',              sub: 'Build 048 — Designer ✓ 2026-03-30', icon: '📱', cat: 'core', file: 'mockup-mobile-chat.html',          x: 2020, y: 400 },
+  // DISTRIBUTE PATH
+  { id: 'distribute-hub',     label: 'Distribute Hub',               sub: 'Build 047 — Designer ✓ 2026-03-30', icon: '📡', cat: 'distribute', file: 'mockup-distribute-hub.html',      x: 60,   y: 1110 },
+  { id: 'distribute-wizard',  label: 'Distribute Wizard',            sub: 'Build 047',                          icon: '🗺️', cat: 'distribute', file: 'mockup-distribute-wizard.html',   x: 280,  y: 1110 },
+  { id: 'distribute-leads',   label: 'Leads',                        sub: 'Build 047',                          icon: '🎯', cat: 'distribute', file: 'mockup-distribute-leads.html',    x: 500,  y: 1110 },
+  { id: 'distribute-outreach',label: 'Outreach',                     sub: 'Build 047',                          icon: '📣', cat: 'distribute', file: 'mockup-distribute-outreach.html', x: 720,  y: 1110 },
+  { id: 'gtm-team',           label: 'GTM Team Avatars',             sub: 'Build 050 — Designer ✓ 2026-03-31', icon: '🌟', cat: 'distribute', file: 'mockup-gtm-team-row.html',         x: 940,  y: 1110 },
+];
+
+const CONNECTIONS = [
+  { from: 'promo-site',      to: 'waitlist',         label: 'Waitlist ON' },
+  { from: 'promo-site',      to: 'projects-list',    label: 'Login →' },
+  { from: 'projects-list',   to: 'type-choice',      label: 'New Project' },
+  { from: 'type-choice',     to: 'setup-wizard',     label: 'Build new app' },
+  { from: 'type-choice',     to: 'distribute-wizard', label: 'Distribute existing app' },
+  { from: 'projects-list',   to: 'project-hub',      label: 'Open Project' },
+  { from: 'setup-wizard',    to: 'project-hub',      label: 'Complete Setup' },
+  { from: 'project-hub',     to: 'screens-builder',  label: 'Screens' },
+  { from: 'project-hub',     to: 'feature-workflow', label: 'Feature Workflow' },
+  { from: 'project-hub',     to: 'feature-phase',    label: 'Feature Phase' },
+  { from: 'project-hub',     to: 'design-gallery',   label: 'Design Gallery' },
+  { from: 'project-hub',     to: 'changes',          label: 'Changes' },
+  { from: 'project-hub',     to: 'global-bugs',      label: 'Global Bugs' },
+  { from: 'project-hub',     to: 'analytics',        label: 'Analytics' },
+  { from: 'project-hub',     to: 'token-usage',      label: 'Token Usage' },
+  { from: 'project-hub',     to: 'artifacts-panel',  label: 'Artifacts' },
+  { from: 'project-hub',     to: 'human-tasks',      label: 'Human Tasks' },
+  { from: 'project-hub',     to: 'custom-domain',    label: 'Domain' },
+  { from: 'project-hub',     to: 'billing',          label: 'Billing' },
+  { from: 'project-hub',     to: 'github',           label: 'GitHub' },
+  { from: 'project-hub',     to: 'email',            label: 'Transact. Email' },
+  { from: 'project-hub',     to: 'seo-aeo',          label: 'SEO / AEO' },
+  { from: 'project-hub',     to: 'adsense',          label: 'AdSense' },
+  { from: 'artifacts-panel', to: 'supporting-docs',  label: 'Your Documents' },
+  { from: 'project-hub',     to: 'deploy-setup',     label: 'Deploy to Alpha' },
+  // setup-wizard → deploy-setup 'Screen 6 (optional)' REMOVED — superseded by infra-setup flow (Build 053)
+  { from: 'setup-wizard',    to: 'infra-setup',      label: 'Screen 5 → Set up infrastructure' },
+  { from: 'project-hub',     to: 'infra-setup',      label: 'Set up infrastructure card' },
+  { from: 'infra-setup',     to: 'project-hub',      label: 'Go to your project →' },
+  { from: 'infra-setup',     to: 'deploy-setup',     label: 'Advanced setup →' },
+  { from: 'project-hub',     to: 'design-gallery',   label: 'Design tab' },
+  { from: 'seo-aeo',         to: 'contextual-help',  label: 'ⓘ Pattern' },
+  { from: 'project-hub',     to: 'named-team',       label: 'PM Chat / Team' },
+  { from: 'feature-workflow',to: 'named-team',        label: 'Team context' },
+  { from: 'projects-list',   to: 'import-website',   label: 'Import existing app' },
+  { from: 'project-hub',     to: 'import-website',   label: 'Import (empty state)' },
+  { from: 'import-website',  to: 'project-hub',      label: 'Import complete' },
+  { from: 'import-website',  to: 'named-team',       label: 'Chat with Morgan →' },
+  { from: 'project-hub',    to: 'project-health',   label: 'Health score / Regression' },
+  { from: 'project-health', to: 'feature-workflow', label: 'Dimension detail → Feature' },
+  { from: 'project-health', to: 'global-bugs',      label: 'Regression → P0 bugs' },
+  { from: 'named-team',    to: 'project-memory',   label: 'Memory Drawer (extends 040)' },
+  { from: 'project-hub',  to: 'project-memory',   label: 'Project Brain panel' },
+  { from: 'setup-wizard',  to: 'first-run',        label: 'New project → first session' },
+  { from: 'project-hub',  to: 'first-run',         label: 'Reeve greeting (first-run state)' },
+  { from: 'first-run',    to: 'feature-workflow',  label: 'Design ready → Review' },
+  { from: 'project-hub',     to: 'team-chat',        label: 'Team Chat (left rail)' },
+  { from: 'feature-workflow', to: 'team-chat',       label: 'Team Chat tab' },
+  // Distribute Path
+  { from: 'project-hub',       to: 'distribute-hub',      label: 'Distribute tab' },
+  { from: 'distribute-hub',    to: 'distribute-wizard',   label: 'Set up Distribute' },
+  { from: 'distribute-hub',    to: 'distribute-leads',    label: 'Leads stage' },
+  { from: 'distribute-hub',    to: 'distribute-outreach', label: 'Outreach stage' },
+  { from: 'distribute-leads',  to: 'distribute-outreach', label: 'Leads → Outreach' },
+  // Mobile
+  { from: 'project-hub',       to: 'mobile-chat',         label: 'Mobile view' },
+  { from: 'mobile-chat',       to: 'project-hub',         label: 'Desktop →' },
+  // Deploy complete
+  { from: 'deploy-setup',      to: 'project-hub',         label: 'Deploy complete' },
+  // project-hub → edit-project removed (Build 024 cancelled; edit is inline on hub)
+  { from: 'screens-builder', to: 'feature-workflow',  label: 'Open Feature' },
+  { from: 'screens-builder', to: 'feature-creation',  label: '+ Add feature (card)' },
+  { from: 'project-hub',    to: 'feature-creation',   label: '+ New feature' },
+  { from: 'feature-creation', to: 'feature-workflow', label: 'Create → open workflow' },
+  { from: 'distribute-hub', to: 'gtm-team',            label: 'GTM team row' },
+  { from: 'project-hub',    to: 'admin-ai-settings',   label: 'Admin Console → AI Settings' },
+  // Prototype Viewer (061)
+  { from: 'design-gallery',  to: 'prototype-viewer',    label: 'Open full prototype ↗' },
+  { from: 'design-gallery',  to: 'prototype-viewer',    label: 'Download prototype ↓' },
+  { from: 'project-hub',     to: 'prototype-viewer',    label: 'Full prototype (nav)' },
+  // Feature Board (058) + Deploy Action (059)
+  { from: 'project-hub',    to: 'feature-board',       label: 'Features board' },
+  { from: 'feature-board',  to: 'feature-workflow',    label: 'Open feature card' },
+  { from: 'feature-board',  to: 'feature-creation',    label: '+ New feature (board header)' },
+  { from: 'feature-board',  to: 'admin-ai-settings',   label: 'Deploy History (Admin Console)' },
+  { from: 'feature-workflow',to: 'feature-phase',    label: 'Feature Phase' },
+  { from: 'deployed-app',    to: 'feedback-widget',  label: 'Feedback' },
+  { from: 'deployed-app',    to: 'bug-reporter',     label: 'Bug Report' },
+  { from: 'deployed-app',    to: 'promo-site',       label: 'Public Entry' },
+];
+
+const CAT_META = {
+  public:     { label: 'PUBLIC', color: '#34c759' },
+  onboarding: { label: 'ONBOARDING', color: '#ff9f0a' },
+  core:       { label: 'CORE BUILDER LOOP', color: '#5b5bd6' },
+  feedback:   { label: 'FEEDBACK & QA', color: '#ff453a' },
+  analytics:  { label: 'ANALYTICS & DATA', color: '#64d2ff' },
+  admin:      { label: 'ADMIN CONSOLE', color: '#bf5af2' },
+  distribute: { label: 'DISTRIBUTE PATH', color: '#00c7be' },
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentView = 'flow';
+let currentScreenId = null;
+let history = [];
+let historyIdx = -1;
+let zoom = 0.7;
+let panX = 40, panY = 40;
+let isDragging = false, dragStartX, dragStartY, panStartX, panStartY;
+const NODE_W = 160, NODE_H = 52;
+
+// ── Build sidebar ─────────────────────────────────────────────────────────────
+function buildSidebar() {
+  const tree = document.getElementById('sidebar-tree');
+  const cats = {};
+  SCREENS.forEach(s => {
+    if (!cats[s.cat]) cats[s.cat] = [];
+    cats[s.cat].push(s);
+  });
+
+  Object.entries(cats).forEach(([cat, screens]) => {
+    const meta = CAT_META[cat];
+    const group = document.createElement('div');
+    group.className = 'sidebar-group';
+    group.dataset.cat = cat;
+
+    const header = document.createElement('div');
+    header.className = 'sidebar-group-header';
+    header.innerHTML = `<span class="chevron">▾</span><span style="color:${meta.color}">${meta.label}</span>`;
+    header.onclick = () => {
+      header.classList.toggle('collapsed');
+      items.style.display = header.classList.contains('collapsed') ? 'none' : 'block';
+    };
+
+    const items = document.createElement('div');
+    items.className = 'sidebar-group-items';
+    screens.forEach(s => {
+      const item = document.createElement('div');
+      item.className = `sidebar-item cat-${s.cat}`;
+      item.dataset.screenId = s.id;
+      item.innerHTML = `<span class="dot" style="background:${meta.color}"></span><span>${s.label}</span>`;
+      item.onclick = () => openScreen(s.id);
+      items.appendChild(item);
+    });
+
+    group.appendChild(header);
+    group.appendChild(items);
+    tree.appendChild(group);
+  });
+}
+
+// ── Build flow map ────────────────────────────────────────────────────────────
+function buildFlowMap() {
+  const canvas = document.getElementById('flow-canvas');
+  const svg = document.getElementById('arrows-svg');
+
+  // Arrow marker
+  svg.innerHTML = `
+    <defs>
+      <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="rgba(255,255,255,0.2)"/>
+      </marker>
+      <marker id="arrowhead-hover" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="rgba(91,91,214,0.8)"/>
+      </marker>
+    </defs>
+  `;
+
+  // Category row labels
+  const catRows = {};
+  SCREENS.forEach(s => {
+    if (!catRows[s.cat]) catRows[s.cat] = s.y;
+    else catRows[s.cat] = Math.min(catRows[s.cat], s.y);
+  });
+  Object.entries(catRows).forEach(([cat, y]) => {
+    const meta = CAT_META[cat];
+    const label = document.createElement('div');
+    label.className = 'flow-category-label';
+    label.style.cssText = `left: 20px; top: ${y - 26}px; color: ${meta.color};`;
+    label.textContent = meta.label;
+    canvas.appendChild(label);
+  });
+
+  // Draw connections first (behind nodes)
+  CONNECTIONS.forEach((conn, i) => {
+    const from = SCREENS.find(s => s.id === conn.from);
+    const to = SCREENS.find(s => s.id === conn.to);
+    if (!from || !to) return;
+
+    const x1 = from.x + NODE_W / 2;
+    const y1 = from.y + NODE_H;
+    const x2 = to.x + NODE_W / 2;
+    const y2 = to.y;
+
+    // Bezier curve
+    const dy = y2 - y1;
+    const cp1y = y1 + Math.max(dy * 0.5, 40);
+    const cp2y = y2 - Math.max(dy * 0.5, 40);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const d = `M ${x1} ${y1} C ${x1} ${cp1y}, ${x2} ${cp2y}, ${x2} ${y2 - 6}`;
+    path.setAttribute('d', d);
+    path.setAttribute('stroke', 'rgba(255,255,255,0.12)');
+    path.setAttribute('stroke-width', '1.5');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('marker-end', 'url(#arrowhead)');
+    path.dataset.connIdx = i;
+    svg.appendChild(path);
+  });
+
+  // Draw nodes
+  SCREENS.forEach(s => {
+    const node = document.createElement('div');
+    node.className = `flow-node cat-${s.cat}`;
+    node.id = `node-${s.id}`;
+    node.style.cssText = `left: ${s.x}px; top: ${s.y}px;`;
+    node.innerHTML = `
+      <span class="node-icon">${s.icon}</span>
+      <div>
+        <div class="node-label">${s.label}</div>
+        <div class="node-sub">${s.sub}</div>
+      </div>
+      <div class="node-dot"></div>
+    `;
+    node.onclick = (e) => { e.stopPropagation(); openScreen(s.id); };
+    canvas.appendChild(node);
+  });
+}
+
+// ── Screen opening ────────────────────────────────────────────────────────────
+function openScreen(screenId) {
+  const screen = SCREENS.find(s => s.id === screenId);
+  if (!screen) return;
+
+  currentScreenId = screenId;
+
+  // Update history
+  if (historyIdx < history.length - 1) history = history.slice(0, historyIdx + 1);
+  history.push(screenId);
+  historyIdx = history.length - 1;
+  updateNavButtons();
+
+  // Highlight node
+  document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('active'));
+  const node = document.getElementById(`node-${screenId}`);
+  if (node) node.classList.add('active');
+
+  // Highlight sidebar
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.screenId === screenId);
+  });
+
+  // Update top bar
+  document.getElementById('current-screen-name').textContent = screen.label;
+
+  // Load iframe (handle pending screens with no mockup yet)
+  if (screen.file) {
+    document.getElementById('screen-iframe').src = screen.file;
+    document.getElementById('screen-iframe').style.display = '';
+    const pending = document.getElementById('pending-overlay');
+    if (pending) pending.remove();
+  } else {
+    document.getElementById('screen-iframe').src = 'about:blank';
+    document.getElementById('screen-iframe').style.display = 'none';
+    // Show pending overlay
+    let po = document.getElementById('pending-overlay');
+    if (!po) {
+      po = document.createElement('div');
+      po.id = 'pending-overlay';
+      po.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0d0d0f;color:#636366;font-size:14px;';
+      po.innerHTML = `<div style="font-size:36px">🎨</div><div style="font-weight:600;color:#e8e8ea">${screen.label}</div><div>${screen.sub}</div><div style="font-size:12px;margin-top:8px;color:#48484a">Mockup in progress — check back soon</div>`;
+      document.getElementById('screen-iframe').parentNode.appendChild(po);
+    } else {
+      po.querySelector('div:nth-child(2)').textContent = screen.label;
+      po.querySelector('div:nth-child(3)').textContent = screen.sub;
+    }
+  }
+
+  // Build nav pills (outgoing connections)
+  const pills = document.getElementById('nav-pills');
+  pills.innerHTML = '';
+  CONNECTIONS.filter(c => c.from === screenId).forEach(c => {
+    const target = SCREENS.find(s => s.id === c.to);
+    if (!target) return;
+    const pill = document.createElement('div');
+    pill.className = 'nav-pill';
+    pill.textContent = `${target.icon} ${c.label} → ${target.label}`;
+    pill.onclick = () => openScreen(target.id);
+    pills.appendChild(pill);
+  });
+  if (pills.children.length === 0) {
+    pills.innerHTML = '<span style="font-size:11px;color:var(--muted)">No outgoing connections from this screen</span>';
+  }
+
+  // Switch to screen view
+  setView('screen');
+
+  // Scale iframe to fit
+  scaleIframe();
+}
+
+function scaleIframe() {
+  const wrap = document.getElementById('screen-frame-wrap');
+  const iframe = document.getElementById('screen-iframe');
+  const availH = wrap.clientHeight - 40;
+  const availW = wrap.clientWidth - 40;
+  const scaleH = availH / 800;
+  const scaleW = availW / 1280;
+  const scale = Math.min(scaleH, scaleW, 1);
+  iframe.style.transform = `scale(${scale})`;
+  iframe.style.transformOrigin = 'top center';
+  iframe.style.marginBottom = `-${800 * (1 - scale)}px`;
+}
+
+// ── View switching ────────────────────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  document.getElementById('flow-map').style.display = v === 'flow' ? 'block' : 'none';
+  document.getElementById('screen-view').classList.toggle('active', v === 'screen');
+  document.getElementById('btn-flow').classList.toggle('active', v === 'flow');
+  document.getElementById('btn-screen').classList.toggle('active', v === 'screen');
+  document.getElementById('zoom-controls').style.display = v === 'flow' ? 'flex' : 'none';
+  if (v === 'flow') document.getElementById('current-screen-name').textContent = currentScreenId ? SCREENS.find(s=>s.id===currentScreenId)?.label || 'Flow Map' : 'Flow Map';
+}
+
+// ── Pan & Zoom ────────────────────────────────────────────────────────────────
+function applyTransform() {
+  document.getElementById('flow-canvas').style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+  document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
+  updateMinimap();
+}
+
+function adjustZoom(delta) {
+  const map = document.getElementById('flow-map');
+  const cx = map.clientWidth / 2;
+  const cy = map.clientHeight / 2;
+  const canvasX = (cx - panX) / zoom;
+  const canvasY = (cy - panY) / zoom;
+  zoom = Math.max(0.3, Math.min(2, zoom + delta));
+  panX = cx - canvasX * zoom;
+  panY = cy - canvasY * zoom;
+  applyTransform();
+}
+
+function fitToView() {
+  const map = document.getElementById('flow-map');
+  const maxX = Math.max(...SCREENS.map(s => s.x + NODE_W));
+  const maxY = Math.max(...SCREENS.map(s => s.y + NODE_H));
+  const minX = Math.min(...SCREENS.map(s => s.x));
+  const minY = Math.min(...SCREENS.map(s => s.y));
+  const contentW = maxX - minX + 80;
+  const contentH = maxY - minY + 80;
+  zoom = Math.min((map.clientWidth) / contentW, (map.clientHeight) / contentH, 1);
+  panX = (map.clientWidth - contentW * zoom) / 2 - minX * zoom + 40 * zoom;
+  panY = 40;
+  applyTransform();
+}
+
+// Minimap
+function updateMinimap() {
+  const canvas = document.getElementById('minimap-canvas');
+  const ctx = canvas.getContext('2d');
+  const map = document.getElementById('flow-map');
+  const W = canvas.width = canvas.offsetWidth;
+  const H = canvas.height = canvas.offsetHeight;
+
+  const maxX = Math.max(...SCREENS.map(s => s.x + NODE_W)) + 40;
+  const maxY = Math.max(...SCREENS.map(s => s.y + NODE_H)) + 40;
+  const scaleX = W / maxX;
+  const scaleY = H / maxY;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw connections
+  CONNECTIONS.forEach(conn => {
+    const from = SCREENS.find(s => s.id === conn.from);
+    const to = SCREENS.find(s => s.id === conn.to);
+    if (!from || !to) return;
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo((from.x + NODE_W/2) * scaleX, (from.y + NODE_H/2) * scaleY);
+    ctx.lineTo((to.x + NODE_W/2) * scaleX, (to.y + NODE_H/2) * scaleY);
+    ctx.stroke();
+  });
+
+  // Draw nodes
+  SCREENS.forEach(s => {
+    const meta = CAT_META[s.cat];
+    ctx.fillStyle = s.id === currentScreenId ? meta.color : 'rgba(255,255,255,0.2)';
+    ctx.fillRect(s.x * scaleX, s.y * scaleY, NODE_W * scaleX, NODE_H * scaleY);
+  });
+
+  // Draw viewport indicator
+  const vx = (-panX / zoom) * scaleX;
+  const vy = (-panY / zoom) * scaleY;
+  const vw = (map.clientWidth / zoom) * scaleX;
+  const vh = (map.clientHeight / zoom) * scaleY;
+  const viewport = document.getElementById('minimap-viewport');
+  viewport.style.left = Math.max(0, vx) + 'px';
+  viewport.style.top = Math.max(0, vy) + 'px';
+  viewport.style.width = Math.min(W, vw) + 'px';
+  viewport.style.height = Math.min(H, vh) + 'px';
+}
+
+// ── History navigation ────────────────────────────────────────────────────────
+function navigateHistory(dir) {
+  const newIdx = historyIdx + dir;
+  if (newIdx < 0 || newIdx >= history.length) return;
+  historyIdx = newIdx;
+  const screenId = history[historyIdx];
+  currentScreenId = screenId;
+  const screen = SCREENS.find(s => s.id === screenId);
+
+  document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('active'));
+  const node = document.getElementById(`node-${screenId}`);
+  if (node) node.classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.screenId === screenId);
+  });
+  document.getElementById('current-screen-name').textContent = screen?.label || '';
+  document.getElementById('screen-iframe').src = screen?.file || 'about:blank';
+
+  const pills = document.getElementById('nav-pills');
+  pills.innerHTML = '';
+  CONNECTIONS.filter(c => c.from === screenId).forEach(c => {
+    const target = SCREENS.find(s => s.id === c.to);
+    if (!target) return;
+    const pill = document.createElement('div');
+    pill.className = 'nav-pill';
+    pill.textContent = `${target.icon} ${c.label} → ${target.label}`;
+    pill.onclick = () => openScreen(target.id);
+    pills.appendChild(pill);
+  });
+
+  setView('screen');
+  updateNavButtons();
+}
+
+function updateNavButtons() {
+  document.getElementById('btn-prev').disabled = historyIdx <= 0;
+  document.getElementById('btn-next').disabled = historyIdx >= history.length - 1;
+}
+
+// ── Sidebar filter ────────────────────────────────────────────────────────────
+function filterSidebar(q) {
+  const query = q.toLowerCase();
+  document.querySelectorAll('.sidebar-item').forEach(item => {
+    const screenId = item.dataset.screenId;
+    const screen = SCREENS.find(s => s.id === screenId);
+    const match = !query || screen?.label.toLowerCase().includes(query) || screen?.sub?.toLowerCase().includes(query);
+    item.style.display = match ? 'flex' : 'none';
+  });
+  document.querySelectorAll('.sidebar-group').forEach(group => {
+    const visible = [...group.querySelectorAll('.sidebar-item')].some(i => i.style.display !== 'none');
+    group.style.display = visible ? 'block' : 'none';
+  });
+}
+
+// ── Pan events ────────────────────────────────────────────────────────────────
+const flowMap = document.getElementById('flow-map');
+
+flowMap.addEventListener('mousedown', e => {
+  if (e.target.closest('.flow-node') || e.target.closest('#minimap')) return;
+  isDragging = true;
+  dragStartX = e.clientX; dragStartY = e.clientY;
+  panStartX = panX; panStartY = panY;
+  flowMap.style.cursor = 'grabbing';
+});
+
+document.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  panX = panStartX + (e.clientX - dragStartX);
+  panY = panStartY + (e.clientY - dragStartY);
+  applyTransform();
+});
+
+document.addEventListener('mouseup', () => {
+  isDragging = false;
+  flowMap.style.cursor = 'grab';
+});
+
+flowMap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.08 : 0.08;
+  const rect = flowMap.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const canvasX = (mx - panX) / zoom;
+  const canvasY = (my - panY) / zoom;
+  zoom = Math.max(0.3, Math.min(2, zoom + delta));
+  panX = mx - canvasX * zoom;
+  panY = my - canvasY * zoom;
+  applyTransform();
+}, { passive: false });
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') { setView('flow'); }
+  if (e.key === 'ArrowLeft') navigateHistory(-1);
+  if (e.key === 'ArrowRight') navigateHistory(1);
+  if (e.key === 'f' || e.key === 'F') fitToView();
+});
+
+// ── Resize handler ────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  if (currentView === 'screen') scaleIframe();
+  updateMinimap();
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+buildSidebar();
+buildFlowMap();
+fitToView();
+document.getElementById('stat-total').textContent = SCREENS.length;
+document.getElementById('stat-connections').textContent = CONNECTIONS.length;
+</script>
+</body>
+</html>

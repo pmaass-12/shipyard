@@ -60,13 +60,33 @@ export function statusLabel(status: ProjectStatus): string {
 
 // ── Progress ──────────────────────────────────────────────────────────────
 
-export function pctLabel(pct: number | null): string {
-  return pct === null ? '—' : `${pct}%`;
+export function pctLabel(pct: number | null | undefined): string {
+  if (pct == null) return '—';
+  return `${Math.round(pct)}%`;
 }
 
 export function pctValue(pct: number | null): number {
   return pct ?? 0;
 }
+
+// ── Lifecycle status (derived from project phase + deploy history) ────────
+
+export type ProjectLifecycle = 'development' | 'alpha' | 'beta' | 'production';
+
+export function deriveLifecycle(p: { phase: string; pushed_to_production_at: string | null; status: string }): ProjectLifecycle {
+  if (p.status === 'shipped' || p.pushed_to_production_at !== null) return 'production';
+  if (p.phase === 'live') return 'production';
+  if (p.phase === 'beta') return 'beta';
+  if (p.phase === 'alpha') return 'alpha';
+  return 'development';
+}
+
+export const LIFECYCLE_DISPLAY: Record<ProjectLifecycle, { label: string; bg: string; dot: string; text: string }> = {
+  development: { label: 'Development', bg: '#f0f0f5', dot: '#8e8e93', text: '#3a3a3c' },
+  alpha:       { label: 'Alpha',       bg: '#fff4e0', dot: '#f59e0b', text: '#92400e' },
+  beta:        { label: 'Beta',        bg: '#dbeafe', dot: '#3b82f6', text: '#1e40af' },
+  production:  { label: 'Production',  bg: '#dcfce7', dot: '#22c55e', text: '#15803d' },
+};
 
 // ── Relative timestamps ───────────────────────────────────────────────────
 

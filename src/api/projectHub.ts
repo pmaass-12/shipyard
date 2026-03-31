@@ -117,7 +117,7 @@ export const SETUP_STEPS: SetupChecklistStep[] = [
     description: 'Give your project a name and describe what it does.',
     isComplete:  (p) => Boolean(p.name && p.description),
     ctaLabel:    'Edit project →',
-    ctaHref:     (id) => `/projects/${id}/setup`,
+    ctaHref:     (id) => `/projects/${id}`,   // Build 056: /setup retired
   },
   {
     number:      2,
@@ -125,7 +125,7 @@ export const SETUP_STEPS: SetupChecklistStep[] = [
     description: 'Add your Supabase project URL and anon key.',
     isComplete:  (p) => Boolean((p as unknown as Record<string, unknown>).supabase_url),
     ctaLabel:    'Connect Supabase →',
-    ctaHref:     (id) => `/projects/${id}/setup#supabase`,
+    ctaHref:     (id) => `/projects/${id}/deploy`,  // Build 056: /setup#supabase → deploy wizard
   },
   {
     number:      3,
@@ -133,7 +133,7 @@ export const SETUP_STEPS: SetupChecklistStep[] = [
     description: 'Link your GitHub repo so Shipyard can read and push code.',
     isComplete:  (p) => Boolean(p.repo_url),
     ctaLabel:    'Connect GitHub →',
-    ctaHref:     (id) => `/projects/${id}/setup#github`,
+    ctaHref:     (id) => `/projects/${id}/github`,  // Build 056: /setup#github → GitHub screen
   },
   {
     number:      4,
@@ -141,7 +141,7 @@ export const SETUP_STEPS: SetupChecklistStep[] = [
     description: 'Required for AI-assisted code generation and chat.',
     isComplete:  (p) => Boolean((p as unknown as Record<string, unknown>).claude_key),
     ctaLabel:    'Add key →',
-    ctaHref:     (id) => `/projects/${id}/setup#claude`,
+    ctaHref:     (id) => `/admin?project=${id}`,    // Build 056: /setup#claude → Admin AI Settings
   },
   {
     number:      5,
@@ -149,7 +149,7 @@ export const SETUP_STEPS: SetupChecklistStep[] = [
     description: 'Link your Netlify site for deploy tracking.',
     isComplete:  (p) => Boolean((p as unknown as Record<string, unknown>).netlify_site_id),
     ctaLabel:    'Connect Netlify →',
-    ctaHref:     (id) => `/projects/${id}/setup#netlify`,
+    ctaHref:     (id) => `/projects/${id}/github`,  // Build 056: /setup#netlify → GitHub/deploy screen
   },
   {
     number:      6,

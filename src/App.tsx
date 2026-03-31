@@ -8,7 +8,8 @@ import LoginScreen               from '@/screens/Login/LoginScreen';
 import ResetPasswordScreen       from '@/screens/Login/ResetPasswordScreen';
 import ProjectsListScreen        from '@/screens/Projects/ProjectsListScreen';
 import AdminScreen               from '@/screens/Admin/AdminScreen';
-import SetupScreen               from '@/screens/Setup/SetupScreen';
+// Build 056: SetupScreen retired — /projects/:id/setup now redirects to hub
+// import SetupScreen            from '@/screens/Setup/SetupScreen';
 import WhatsNewScreen            from '@/screens/WhatsNew/WhatsNewScreen';       // Build 009
 import SeoScreen                 from '@/screens/Seo/SeoScreen';                 // Build 010
 import ProjectHubScreen          from '@/screens/ProjectHub/ProjectHubScreen';   // Build 014
@@ -30,7 +31,8 @@ import PromoScreen               from '@/screens/Promo/PromoScreen';            
 import DocumentsScreen           from '@/screens/Documents/DocumentsScreen';      // Build 030
 import ChangesScreen             from '@/screens/Changes/ChangesScreen';          // Build 035
 import SetupWizardScreen         from '@/screens/Setup/SetupWizardScreen';        // Build 032
-import DeploySetupScreen         from '@/screens/Deploy/DeploySetupScreen';       // Build 038
+// Build 038 DeploySetupScreen superseded by Build 053 InfraSetupWizardScreen at /projects/:id/deploy
+// import DeploySetupScreen         from '@/screens/Deploy/DeploySetupScreen';       // Build 038 — preserved for reference
 import ProjectTypeChoiceScreen   from '@/screens/Setup/ProjectTypeChoiceScreen';  // Build 047
 import DistributeWizardScreen    from '@/screens/Distribute/DistributeWizardScreen'; // Build 047
 import DistributeHubScreen       from '@/screens/Distribute/DistributeHubScreen';    // Build 047
@@ -38,6 +40,16 @@ import DistributeResearchScreen  from '@/screens/Distribute/DistributeResearchSc
 import DistributeLeadsScreen     from '@/screens/Distribute/DistributeLeadsScreen';    // Build 047
 import DistributeOutreachScreen  from '@/screens/Distribute/DistributeOutreachScreen'; // Build 047
 import MobileChatView            from '@/screens/Mobile/MobileChatView';               // Build 048
+import InfraSetupWizardScreen    from '@/screens/Setup/InfraWizardScreen';              // Build 053 — replaces DeploySetupScreen at /deploy
+import FeatureBoardScreen        from '@/screens/FeatureBoard/FeatureBoardScreen';       // Build 058
+import DesignGalleryScreen      from '@/screens/DesignGallery/DesignGalleryScreen';     // Build 061
+import PrototypeViewerScreen    from '@/screens/Prototype/PrototypeViewerScreen';       // Build 061
+
+// ── Build 056: /projects/:id/setup redirect helper ───────────────────────
+function SetupRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/projects/${id}`} replace />;
+}
 
 // ── App ──────────────────────────────────────────────────────────────────
 export default function App() {
@@ -62,7 +74,8 @@ export default function App() {
 
             <Route path="/" element={<Navigate to="/projects" replace />} />
             <Route path="/projects" element={<ProjectsListScreen />} />
-            <Route path="/projects/:id/setup" element={<SetupScreen />} />
+            {/* Build 056: SetupScreen retired — redirect to Project Hub */}
+            <Route path="/projects/:id/setup" element={<SetupRedirect />} />
 
             {/* Build 047: Project type choice — shown before Build or Distribute wizard */}
             <Route path="/projects/:id/setup/wizard" element={<ProjectTypeChoiceScreen />} />
@@ -89,6 +102,15 @@ export default function App() {
             {/* Build 015: Screens & Sitemap Builder */}
             <Route path="/projects/:id/screens" element={<ScreensScreen />} />
             <Route path="/projects/:id/screens/:screenId" element={<ScreensScreen />} />
+
+            {/* Build 058: Feature Board — all features grouped by pipeline stage */}
+            <Route path="/projects/:id/features" element={<FeatureBoardScreen />} />
+
+            {/* Build 061: Design Gallery — Designs tab + Flow Map tab */}
+            <Route path="/projects/:id/gallery" element={<DesignGalleryScreen />} />
+
+            {/* Build 061: Prototype Viewer — full-screen live prototype */}
+            <Route path="/projects/:id/prototype" element={<PrototypeViewerScreen />} />
 
             {/* Build 016: Feature Workflow */}
             <Route path="/projects/:id/features/:featureId" element={<FeatureWorkflowScreen />} />
@@ -138,8 +160,9 @@ export default function App() {
             {/* Build 030: Supporting Documents */}
             <Route path="/projects/:id/documents" element={<DocumentsScreen />} />
 
-            {/* Build 038: Deploy Setup Flow */}
-            <Route path="/projects/:id/deploy" element={<DeploySetupScreen />} />
+            {/* Build 053: Guided Infrastructure Setup Wizard (replaces Build 038 at this route)
+                Advanced mode preserves Build 038 UI behind "Advanced setup →" link */}
+            <Route path="/projects/:id/deploy" element={<InfraSetupWizardScreen />} />
 
             {/* Admin Console — gated by VITE_SHIPYARD_ADMIN env var at build time */}
             <Route path="/admin" element={<AdminScreen />} />
