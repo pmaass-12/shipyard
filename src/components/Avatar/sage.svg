@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="sg-skin" cx="45%" cy="35%" r="62%">
+      <stop offset="0%" stop-color="#c88848"/>
+      <stop offset="65%" stop-color="#a06830"/>
+      <stop offset="100%" stop-color="#7a4c1c"/>
+    </radialGradient>
+    <linearGradient id="sg-shirt" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2e4010"/>
+      <stop offset="100%" stop-color="#1c2808"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#65a30d"/>
+
+  <!-- Clothing – clean minimal, dark sage -->
+  <path d="M0,100 Q18,76 40,70 L50,74 L60,70 Q82,76 100,100Z" fill="url(#sg-shirt)"/>
+  <!-- Simple crew neck -->
+  <path d="M42,70 Q50,72 58,70" stroke="#3a5018" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Neck -->
+  <path d="M43,67 Q50,70 57,67 L57,74 Q50,75 43,74Z" fill="#9a6030"/>
+
+  <!-- Ears -->
+  <ellipse cx="30" cy="46" rx="4" ry="5" fill="#9a6030"/>
+  <ellipse cx="70" cy="46" rx="4" ry="5" fill="#9a6030"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="45" rx="21" ry="23" fill="url(#sg-skin)"/>
+
+  <!-- Close-cropped hair – very thin dome hugging head -->
+  <path d="M30,46 Q29,22 50,20 Q71,22 70,46 Q66,32 50,28 Q34,32 30,46Z"
+        fill="#0a0a0a"/>
+  <!-- Hair fade: soft edge to show close-crop texture -->
+  <path d="M32,40 Q31,26 50,24 Q69,26 68,40"
+        stroke="#1a1a1a" stroke-width="3" fill="none" opacity="0.5"/>
+
+  <!-- GLASSES – round, thin frame (most distinctive feature) -->
+  <!-- Left lens -->
+  <circle cx="38.5" cy="43" r="8.5" fill="none" stroke="#2d4010" stroke-width="2"/>
+  <!-- Right lens -->
+  <circle cx="61.5" cy="43" r="8.5" fill="none" stroke="#2d4010" stroke-width="2"/>
+  <!-- Bridge -->
+  <path d="M47,43 L53,43" stroke="#2d4010" stroke-width="1.8" fill="none"/>
+  <!-- Temple arms -->
+  <path d="M30,43 L28,41" stroke="#2d4010" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <path d="M70,43 L72,41" stroke="#2d4010" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <!-- Subtle lens tint -->
+  <circle cx="38.5" cy="43" r="8.5" fill="#65a30d" opacity="0.08"/>
+  <circle cx="61.5" cy="43" r="8.5" fill="#65a30d" opacity="0.08"/>
+
+  <!-- Eyebrows – precise, seen above glasses -->
+  <path d="M32,33 Q38.5,31.5 45,33" stroke="#0a0a0a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M55,33 Q61.5,31.5 68,33" stroke="#0a0a0a" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes – inside glasses -->
+  <ellipse cx="38.5" cy="43" rx="4.5" ry="3.5" fill="white"/>
+  <ellipse cx="61.5" cy="43" rx="4.5" ry="3.5" fill="white"/>
+  <!-- Iris – dark brown with slight warmth -->
+  <circle cx="38.5" cy="43" r="2.5" fill="#1e1008"/>
+  <circle cx="61.5" cy="43" r="2.5" fill="#1e1008"/>
+  <!-- Highlight -->
+  <circle cx="39.5" cy="42" r="0.9" fill="white" opacity="0.9"/>
+  <circle cx="62.5" cy="42" r="0.9" fill="white" opacity="0.9"/>
+
+  <!-- Nose – minimal, precise -->
+  <path d="M48,51 L47.5,55" stroke="#7a4c20" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M52,51 L52.5,55" stroke="#7a4c20" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M46.5,55 Q50,57 53.5,55" stroke="#7a4c20" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Mouth – slight smile (the "one who finds beauty in a schema") -->
+  <path d="M43,59.5 Q47,63.5 50,63 Q53,63.5 57,59.5" stroke="#7a3018" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <!-- Smile line on left -->
+  <path d="M43,59.5 Q41,61 42,63" stroke="#9a6030" stroke-width="0.8" fill="none" stroke-linecap="round" opacity="0.5"/>
+</svg>

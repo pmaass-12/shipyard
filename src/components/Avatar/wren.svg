@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="wr-skin" cx="48%" cy="38%" r="60%">
+      <stop offset="0%" stop-color="#f5ddb5"/>
+      <stop offset="65%" stop-color="#e8be8a"/>
+      <stop offset="100%" stop-color="#d0a068"/>
+    </radialGradient>
+    <radialGradient id="wr-hair" cx="35%" cy="15%" r="75%">
+      <stop offset="0%" stop-color="#9a5220"/>
+      <stop offset="60%" stop-color="#6e3410"/>
+      <stop offset="100%" stop-color="#4a2008"/>
+    </radialGradient>
+    <linearGradient id="wr-shirt" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6a5020"/>
+      <stop offset="100%" stop-color="#4a3810"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#f59e0b"/>
+
+  <!-- Clothing with amber detail -->
+  <path d="M0,100 Q16,78 38,72 L50,76 L62,72 Q84,78 100,100Z" fill="url(#wr-shirt)"/>
+  <!-- Amber collar/lanyard detail -->
+  <path d="M44,72 L48,67 L50,69 L52,67 L56,72" stroke="#f59e0b" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Neck -->
+  <path d="M43,67 Q50,70 57,67 L57,74 Q50,76 43,74Z" fill="#daa870"/>
+
+  <!-- HEADPHONES around neck: thin arc band -->
+  <path d="M33,68 Q34,78 38,78 Q42,78 43,74" stroke="#1a1a1a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M67,68 Q66,78 62,78 Q58,78 57,74" stroke="#1a1a1a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Headphone cups at neck -->
+  <ellipse cx="36" cy="73" rx="4" ry="3.5" fill="#1a1a1a"/>
+  <ellipse cx="64" cy="73" rx="4" ry="3.5" fill="#1a1a1a"/>
+
+  <!-- Wavy hair – wider than face on sides, loose -->
+  <!-- Left side wave -->
+  <path d="M16,65 Q12,52 14,40 Q16,28 22,22 Q28,14 38,12 Q28,26 26,40 Q24,52 26,65Z"
+        fill="url(#wr-hair)"/>
+  <!-- Right side wave -->
+  <path d="M84,65 Q88,52 86,40 Q84,28 78,22 Q72,14 62,12 Q72,26 74,40 Q76,52 74,65Z"
+        fill="url(#wr-hair)"/>
+
+  <!-- Hair top / dome -->
+  <path d="M26,46 Q24,14 50,11 Q76,14 74,46 Q68,28 50,19 Q32,28 26,46Z"
+        fill="url(#wr-hair)"/>
+
+  <!-- Loose strands – a few wavy tendrils -->
+  <path d="M26,44 Q22,50 24,58 Q22,64 26,68" stroke="#6e3410" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M74,44 Q78,50 76,58 Q78,64 74,68" stroke="#6e3410" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Small loose front strand -->
+  <path d="M40,22 Q36,28 38,34" stroke="#7a3c14" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Ears (partially hidden) -->
+  <ellipse cx="30" cy="46" rx="3.5" ry="4.5" fill="#daa870"/>
+  <ellipse cx="70" cy="46" rx="3.5" ry="4.5" fill="#daa870"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="45" rx="21" ry="23" fill="url(#wr-skin)"/>
+
+  <!-- Eyebrows – slightly raised, curious -->
+  <path d="M33,35.5 Q38,33 43,34.5" stroke="#4a2008" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M57,34.5 Q62,33 67,35.5" stroke="#4a2008" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes – expressive, wide -->
+  <ellipse cx="39" cy="41" rx="6" ry="4.5" fill="white"/>
+  <ellipse cx="61" cy="41" rx="6" ry="4.5" fill="white"/>
+  <path d="M33,38.5 Q39,36 45,38.5" stroke="#4a2008" stroke-width="1" fill="none"/>
+  <path d="M55,38.5 Q61,36 67,38.5" stroke="#4a2008" stroke-width="1" fill="none"/>
+  <!-- Iris – warm hazel/green -->
+  <circle cx="39.5" cy="41" r="3" fill="#4a6830"/>
+  <circle cx="60.5" cy="41" r="3" fill="#4a6830"/>
+  <!-- Pupil -->
+  <circle cx="39.5" cy="41" r="1.5" fill="#1a1205"/>
+  <circle cx="60.5" cy="41" r="1.5" fill="#1a1205"/>
+  <!-- Highlight -->
+  <circle cx="40.8" cy="39.8" r="1.1" fill="white" opacity="0.9"/>
+  <circle cx="61.8" cy="39.8" r="1.1" fill="white" opacity="0.9"/>
+
+  <!-- Nose -->
+  <path d="M47.5,50 L47,54" stroke="#b08050" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M52.5,50 L53,54" stroke="#b08050" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M46,54 Q50,56.5 54,54" stroke="#b08050" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Mouth – slightly open smile, curious -->
+  <path d="M42,58 Q46.5,62.5 50,62 Q53.5,62.5 58,58" stroke="#8a3820" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <path d="M44,58.5 Q50,61.5 56,58.5" stroke="#e89090" stroke-width="0.8" fill="none" stroke-linecap="round" opacity="0.4"/>
+
+  <!-- Amber earring (right ear) -->
+  <circle cx="70.5" cy="49" r="2" fill="#f59e0b" stroke="#c47800" stroke-width="0.5"/>
+
+  <!-- Blush -->
+  <ellipse cx="33" cy="50" rx="5" ry="3" fill="#e09060" opacity="0.2"/>
+  <ellipse cx="67" cy="50" rx="5" ry="3" fill="#e09060" opacity="0.2"/>
+</svg>

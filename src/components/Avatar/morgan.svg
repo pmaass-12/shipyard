@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="mg-skin" cx="45%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#dba882"/>
+      <stop offset="65%" stop-color="#c07850"/>
+      <stop offset="100%" stop-color="#a06038"/>
+    </radialGradient>
+    <radialGradient id="mg-hair" cx="40%" cy="20%" r="70%">
+      <stop offset="0%" stop-color="#5c3d22"/>
+      <stop offset="100%" stop-color="#281508"/>
+    </radialGradient>
+    <linearGradient id="mg-blazer" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3d5068"/>
+      <stop offset="100%" stop-color="#2a3a50"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#64748b"/>
+
+  <!-- Blazer / clothing -->
+  <path d="M0,100 Q18,76 40,70 L50,75 L60,70 Q82,76 100,100Z" fill="url(#mg-blazer)"/>
+  <!-- Lapels -->
+  <path d="M40,70 L45,65 L50,70" fill="#4a6080" stroke="#3a5070" stroke-width="0.5"/>
+  <path d="M60,70 L55,65 L50,70" fill="#4a6080" stroke="#3a5070" stroke-width="0.5"/>
+
+  <!-- Neck -->
+  <path d="M43,67 Q50,70 57,67 L57,75 Q50,76 43,75Z" fill="#b87050"/>
+
+  <!-- Ears (behind head, so draw before) -->
+  <ellipse cx="30" cy="45" rx="4" ry="5" fill="#b87050"/>
+  <ellipse cx="70" cy="45" rx="3" ry="4" fill="#b87050"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="44" rx="20" ry="23" fill="url(#mg-skin)"/>
+
+  <!-- Hair – smooth pulled-back dome -->
+  <path d="M30,46 Q29,15 50,13 Q71,15 70,46 Q65,28 50,21 Q35,28 30,46Z"
+        fill="url(#mg-hair)"/>
+  <!-- Bun at back-right -->
+  <ellipse cx="67" cy="27" rx="6.5" ry="5.5" fill="#3a2210"/>
+  <!-- Hair strand across bun -->
+  <path d="M61,28 Q67,24 73,28" stroke="#281508" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyebrows – straight, authoritative -->
+  <path d="M33,36 Q38,34.5 43,36" stroke="#281508" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <path d="M57,36 Q62,34.5 67,36" stroke="#281508" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes – white sclera -->
+  <ellipse cx="39" cy="41.5" rx="5.5" ry="4" fill="white"/>
+  <ellipse cx="61" cy="41.5" rx="5.5" ry="4" fill="white"/>
+  <!-- Upper eyelid line -->
+  <path d="M33.5,39.5 Q39,37.5 44.5,39.5" stroke="#281508" stroke-width="1" fill="none"/>
+  <path d="M55.5,39.5 Q61,37.5 66.5,39.5" stroke="#281508" stroke-width="1" fill="none"/>
+  <!-- Iris -->
+  <circle cx="39.5" cy="41.5" r="2.9" fill="#3a2010"/>
+  <circle cx="60.5" cy="41.5" r="2.9" fill="#3a2010"/>
+  <!-- Highlight -->
+  <circle cx="40.8" cy="40.3" r="1" fill="white" opacity="0.9"/>
+  <circle cx="61.8" cy="40.3" r="1" fill="white" opacity="0.9"/>
+
+  <!-- Nose – subtle bridge + nostrils -->
+  <path d="M48,49 L47.5,53.5" stroke="#9a6040" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M52,49 L52.5,53.5" stroke="#9a6040" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M46.5,53.5 Q50,55.5 53.5,53.5" stroke="#9a6040" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Mouth – composed, slight set -->
+  <path d="M42.5,58.5 Q46,61.5 50,61 Q54,61.5 57.5,58.5" stroke="#8a3828" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+
+  <!-- Subtle cheek blush -->
+  <ellipse cx="34" cy="49" rx="5" ry="3" fill="#c07050" opacity="0.18"/>
+  <ellipse cx="66" cy="49" rx="5" ry="3" fill="#c07050" opacity="0.18"/>
+</svg>

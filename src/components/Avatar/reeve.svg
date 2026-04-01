@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="rv-skin" cx="46%" cy="35%" r="63%">
+      <stop offset="0%" stop-color="#d4a878"/>
+      <stop offset="65%" stop-color="#b88850"/>
+      <stop offset="100%" stop-color="#9a6a34"/>
+    </radialGradient>
+    <radialGradient id="rv-hair" cx="42%" cy="18%" r="73%">
+      <stop offset="0%" stop-color="#222030"/>
+      <stop offset="60%" stop-color="#140e20"/>
+      <stop offset="100%" stop-color="#080510"/>
+    </radialGradient>
+    <linearGradient id="rv-jacket" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3530a8"/>
+      <stop offset="100%" stop-color="#231e7a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#4338ca"/>
+
+  <!-- Jacket / smart-casual -->
+  <path d="M0,100 Q18,76 40,70 L50,75 L60,70 Q82,76 100,100Z" fill="url(#rv-jacket)"/>
+  <!-- Lapels — structured jacket detail -->
+  <path d="M40,70 L46,64 L50,70" fill="#4040c0" stroke="#2d28a0" stroke-width="0.6"/>
+  <path d="M60,70 L54,64 L50,70" fill="#4040c0" stroke="#2d28a0" stroke-width="0.6"/>
+  <!-- Shirt collar peek between lapels -->
+  <path d="M47,68 L50,65 L53,68" fill="#d8d0f8" stroke="#9090d8" stroke-width="0.5"/>
+
+  <!-- Neck -->
+  <path d="M43,67 Q50,70 57,67 L57,74 Q50,76 43,74Z" fill="#a87840"/>
+
+  <!-- Ears -->
+  <ellipse cx="30" cy="45" rx="4" ry="5" fill="#a87840"/>
+  <ellipse cx="70" cy="45" rx="4" ry="5" fill="#a87840"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="44" rx="21" ry="23" fill="url(#rv-skin)"/>
+
+  <!-- Short neat hair, slight wave — clean but not rigid -->
+  <!-- Main dome -->
+  <path d="M30,47 Q29,17 50,15 Q71,17 70,47 Q66,29 50,22 Q34,29 30,47Z"
+        fill="url(#rv-hair)"/>
+  <!-- Slight natural wave / volume on the right side of part -->
+  <path d="M52,22 Q58,20 64,24 Q68,28 67,36"
+        stroke="#2a2040" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <!-- Hair texture / movement line — subtle wave flowing from left to right -->
+  <path d="M35,28 Q42,25 50,26 Q58,25 65,30"
+        stroke="#1a1830" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.45"/>
+  <!-- Hairline definition: slight sweep across the forehead -->
+  <path d="M33,36 Q40,31 50,30 Q60,31 67,36"
+        stroke="#1a1530" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.3"/>
+
+  <!-- Eyebrows – calm, composed, slightly arched — "makes you feel heard" -->
+  <path d="M33,35.5 Q38.5,33 44,34.5" stroke="#0a0818" stroke-width="2.1" fill="none" stroke-linecap="round"/>
+  <path d="M56,34.5 Q61.5,33 67,35.5" stroke="#0a0818" stroke-width="2.1" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes – warm, direct gaze (straight at viewer) — attentive, present -->
+  <ellipse cx="39" cy="41" rx="5.8" ry="4.2" fill="white"/>
+  <ellipse cx="61" cy="41" rx="5.8" ry="4.2" fill="white"/>
+  <!-- Upper eyelid -->
+  <path d="M33.2,38.8 Q39,36.5 44.8,38.8" stroke="#0a0818" stroke-width="1.2" fill="none"/>
+  <path d="M55.2,38.8 Q61,36.5 66.8,38.8" stroke="#0a0818" stroke-width="1.2" fill="none"/>
+  <!-- Iris — warm dark brown, centered (direct contact) -->
+  <circle cx="39" cy="41" r="3" fill="#2a1c10"/>
+  <circle cx="61" cy="41" r="3" fill="#2a1c10"/>
+  <!-- Pupil -->
+  <circle cx="39" cy="41" r="1.6" fill="#0a0808"/>
+  <circle cx="61" cy="41" r="1.6" fill="#0a0808"/>
+  <!-- Highlight — two per eye for warmth and life -->
+  <circle cx="40.2" cy="39.8" r="1" fill="white" opacity="0.92"/>
+  <circle cx="62.2" cy="39.8" r="1" fill="white" opacity="0.92"/>
+  <circle cx="37.8" cy="42.2" r="0.55" fill="white" opacity="0.45"/>
+  <circle cx="59.8" cy="42.2" r="0.55" fill="white" opacity="0.45"/>
+
+  <!-- Nose — confident, unpretentious -->
+  <path d="M48,50 L47.5,54.5" stroke="#886030" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M52,50 L52.5,54.5" stroke="#886030" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M46.5,54.5 Q50,56.5 53.5,54.5" stroke="#886030" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Mouth — warm, engaged — slight open smile, present and listening -->
+  <path d="M43,59.5 Q47,63 50,62.5 Q53,63 57,59.5" stroke="#7a3818" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <!-- Lip warmth hint -->
+  <path d="M44.5,59.5 Q50,62 55.5,59.5" stroke="#c07860" stroke-width="0.7" fill="none" stroke-linecap="round" opacity="0.3"/>
+
+  <!-- Subtle nasolabial warmth — conveys age and warmth, not harsh -->
+  <path d="M43.5,59.5 Q42,61.5 43,63" stroke="#9a6840" stroke-width="0.8" fill="none" stroke-linecap="round" opacity="0.4"/>
+  <path d="M56.5,59.5 Q58,61.5 57,63" stroke="#9a6840" stroke-width="0.8" fill="none" stroke-linecap="round" opacity="0.4"/>
+
+  <!-- Subtle cheek warmth — makes the face feel alive -->
+  <ellipse cx="34" cy="49" rx="5" ry="3" fill="#b87050" opacity="0.16"/>
+  <ellipse cx="66" cy="49" rx="5" ry="3" fill="#b87050" opacity="0.16"/>
+</svg>

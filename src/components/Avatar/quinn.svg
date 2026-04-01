@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="qn-skin" cx="46%" cy="35%" r="63%">
+      <stop offset="0%" stop-color="#f5dfc0"/>
+      <stop offset="65%" stop-color="#e0c49a"/>
+      <stop offset="100%" stop-color="#c8a878"/>
+    </radialGradient>
+    <radialGradient id="qn-hair" cx="42%" cy="18%" r="72%">
+      <stop offset="0%" stop-color="#2e2030"/>
+      <stop offset="55%" stop-color="#1a1020"/>
+      <stop offset="100%" stop-color="#0a0810"/>
+    </radialGradient>
+    <linearGradient id="qn-shirt" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5a2ab0"/>
+      <stop offset="100%" stop-color="#3a1878"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="50" cy="50" r="50" fill="#7c3aed"/>
+
+  <!-- Clothing – structured, polished, violet -->
+  <path d="M0,100 Q18,76 40,70 L50,75 L60,70 Q82,76 100,100Z" fill="url(#qn-shirt)"/>
+  <!-- Clean collar / neckline – slight V suggestion -->
+  <path d="M43,70 L50,66 L57,70" stroke="#4c1a9a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <!-- Subtle collar band -->
+  <path d="M44,71 Q50,74 56,71" stroke="#6a30c0" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Neck -->
+  <path d="M43,67 Q50,70 57,67 L57,74 Q50,76 43,74Z" fill="#d4b888"/>
+
+  <!-- Ears -->
+  <ellipse cx="30" cy="45" rx="4" ry="5" fill="#d4b888"/>
+  <ellipse cx="70" cy="45" rx="4" ry="5" fill="#d4b888"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="44" rx="21" ry="23" fill="url(#qn-skin)"/>
+
+  <!-- Neat, polished short hair – clean geometric cap, no flyaways -->
+  <!-- Main dome – clean edge, slightly tapered at sides -->
+  <path d="M30,47 Q29,17 50,15 Q71,17 70,47 Q67,28 50,22 Q33,28 30,47Z"
+        fill="url(#qn-hair)"/>
+  <!-- Side definition – clean straight edge on right -->
+  <path d="M68,34 Q70,40 70,47" stroke="#1a1020" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Side definition – clean straight edge on left -->
+  <path d="M32,34 Q30,40 30,47" stroke="#1a1020" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Subtle side part — clean line near left temple area -->
+  <path d="M38,22 Q37,28 38,34" stroke="#2e2040" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <!-- Subtle color highlight – dark plum streak near part line -->
+  <path d="M40,22 Q39,27 40,32" stroke="#6030a0" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Eyebrows – confident, slightly arched, precise -->
+  <path d="M32.5,35 Q38,32 43.5,33.5" stroke="#0a0810" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <path d="M56.5,33.5 Q62,32 67.5,35" stroke="#0a0810" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+
+  <!-- Eyes – bright, alert, direct gaze (straight ahead) -->
+  <ellipse cx="39" cy="41" rx="5.8" ry="4.2" fill="white"/>
+  <ellipse cx="61" cy="41" rx="5.8" ry="4.2" fill="white"/>
+  <!-- Upper eyelid line – clean, defined -->
+  <path d="M33.2,39 Q39,36.5 44.8,39" stroke="#0a0810" stroke-width="1.2" fill="none"/>
+  <path d="M55.2,39 Q61,36.5 66.8,39" stroke="#0a0810" stroke-width="1.2" fill="none"/>
+  <!-- Slight lower lash line -->
+  <path d="M33.5,43 Q39,44.5 44.5,43" stroke="#3a2848" stroke-width="0.6" fill="none" opacity="0.5"/>
+  <path d="M55.5,43 Q61,44.5 66.5,43" stroke="#3a2848" stroke-width="0.6" fill="none" opacity="0.5"/>
+  <!-- Iris – dark with slight violet warmth, direct gaze (centered) -->
+  <circle cx="39" cy="41" r="3" fill="#281838"/>
+  <circle cx="61" cy="41" r="3" fill="#281838"/>
+  <!-- Pupil -->
+  <circle cx="39" cy="41" r="1.6" fill="#0a0810"/>
+  <circle cx="61" cy="41" r="1.6" fill="#0a0810"/>
+  <!-- Highlight – two catch-lights per eye for that "alert" look -->
+  <circle cx="40.2" cy="39.8" r="1" fill="white" opacity="0.9"/>
+  <circle cx="62.2" cy="39.8" r="1" fill="white" opacity="0.9"/>
+  <circle cx="37.8" cy="42" r="0.5" fill="white" opacity="0.5"/>
+  <circle cx="59.8" cy="42" r="0.5" fill="white" opacity="0.5"/>
+
+  <!-- Nose – clean, minimal -->
+  <path d="M48,50 L47.5,54" stroke="#a88060" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M52,50 L52.5,54" stroke="#a88060" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+  <path d="M46.5,54 Q50,56 53.5,54" stroke="#a88060" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Mouth – composed, confident, slight hint of satisfaction -->
+  <path d="M43,59 Q47,62.5 50,62 Q53,62.5 57,59" stroke="#8a3820" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <!-- Lip line – subtle -->
+  <path d="M44.5,59 Q50,61 55.5,59" stroke="#c08070" stroke-width="0.7" fill="none" stroke-linecap="round" opacity="0.35"/>
+
+  <!-- Small violet stud earring – polished detail -->
+  <circle cx="70" cy="48" r="1.8" fill="#9d60f0" stroke="#4c1a9a" stroke-width="0.5"/>
+</svg>
