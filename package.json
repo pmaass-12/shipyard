@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@rollup/rollup-linux-arm64-gnu": "^4.60.1",
     "@supabase/supabase-js": "^2.39.3",
     "date-fns": "^3.3.1",
     "html2canvas": "^1.4.1",
