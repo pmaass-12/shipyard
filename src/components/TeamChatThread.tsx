@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabase';
 import { Avatar } from '@/components/Avatar';
 import type { TeamMessage, TeamPersona, PipelineStage } from '@/types/db';
 
@@ -299,7 +299,7 @@ export function TeamChatThread({ featureId }: TeamChatThreadProps) {
           table:  'team_messages',
           filter: `feature_id=eq.${featureId}`,
         },
-        (payload) => {
+        (payload: { new: unknown }) => {
           setMessages((prev) => [...prev, payload.new as TeamMessage]);
         },
       )

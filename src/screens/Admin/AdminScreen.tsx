@@ -1818,9 +1818,9 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             {([
               { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5',   tagline: 'Fastest & most affordable', cost: '~$0.01 / feature' },
-              { id: 'claude-sonnet-4-6',         name: 'Sonnet 4.6',  tagline: 'Best balance of speed & quality', cost: '~$0.05 / feature', recommended: true },
+              { id: 'claude-sonnet-4-6',         name: 'Sonnet 4.6',  tagline: 'Best balance of speed & quality', cost: '~$0.05 / feature', recommended: true as const },
               { id: 'claude-opus-4-6',           name: 'Opus 4.6',    tagline: 'Most capable', cost: '~$0.20 / feature' },
-            ] as const).map((m) => {
+            ] as Array<{ id: string; name: string; tagline: string; cost: string; recommended?: true }>).map((m) => {
               const selected = defaultModel === m.id;
               return (
                 <div

@@ -23,7 +23,7 @@ export default function DistributeResearchScreen() {
   const [research, setResearch]   = useState<BusinessResearch | null>(null);
   const [loading, setLoading]     = useState(true);
   const [approving, setApproving] = useState(false);
-  const [editing, setEditing]     = useState(false);
+  const [_editing, setEditing]     = useState(false);
 
   useEffect(() => {
     if (!projectId) return;

@@ -552,7 +552,7 @@ function ReeveHelpPanel({
   onClose,
   currentStep,
   currentField,
-  preloadQuestion,
+  preloadQuestion: _preloadQuestion,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -894,7 +894,7 @@ function NeedHelpLink({ onClick }: { onClick: () => void }) {
 
 function Step1({
   onSuccess,
-  onHelpOpen,
+  onHelpOpen: _onHelpOpen,
 }: {
   onSuccess: (repoName: string) => void;
   onHelpOpen: (field?: string) => void;
@@ -1464,7 +1464,7 @@ function FinalScreen({
 function AdvancedMode({
   onSwitchToGuided,
   onSave,
-  onHelpOpen,
+  onHelpOpen: _onHelpOpen,
 }: {
   onSwitchToGuided: () => void;
   onSave: () => void;

@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import type { ProjectMemoryFact, MemoryFactCategory, NewMemoryFactInput, UpdateMemoryFactInput } from '@/types/db';
+import type { ProjectMemoryFact, MemoryFactCategory } from '@/types/db';
 import {
   getMemoryFacts,
   getSystemMemoryFacts,
@@ -374,7 +374,6 @@ export default function MemoryDrawer({
     editing:  ProjectMemoryFact | null;
     prefill:  { title: string; body: string; category: MemoryFactCategory } | null;
   }>({ open: false, editing: null, prefill: null });
-  const [undoQueue,   setUndoQueue]   = useState<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // ── Pass 2: compaction state ──────────────────────────────────────────────
   const [uncompactedCount,   setUncompactedCount]   = useState<number | null>(null);
@@ -515,7 +514,7 @@ export default function MemoryDrawer({
     setUserFacts(prev => prev.filter(f => f.id !== id));
 
     // 5s undo window
-    const timer = setTimeout(async () => {
+    setTimeout(async () => {
       try {
         await deleteMemoryFact(id);
       } catch (err) {
@@ -523,22 +522,11 @@ export default function MemoryDrawer({
         // Reload on failure
         getMemoryFacts(projectId).then(setUserFacts).catch(() => {});
       }
-      setUndoQueue(prev => { const next = new Map(prev); next.delete(id); return next; });
     }, 5000);
 
-    setUndoQueue(prev => new Map(prev).set(id, timer));
-    // TODO: show undo toast (wire to Toast component in a follow-up)
+    // TODO: wire undo queue to Toast component in a follow-up
   }, [projectId]);
 
-  const handleUndoDelete = useCallback((id: string) => {
-    const timer = undoQueue.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      setUndoQueue(prev => { const next = new Map(prev); next.delete(id); return next; });
-      // Fact was already removed from local state — refetch to restore
-      getMemoryFacts(projectId).then(setUserFacts).catch(() => {});
-    }
-  }, [undoQueue, projectId]);
 
   const handleSave = useCallback(async (data: { title: string; body: string; category: MemoryFactCategory }) => {
     if (modalState.editing) {

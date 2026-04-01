@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { supabase }                     from '@/lib/supabase';
 import type { Screen }                  from '@/types/db';
 
@@ -53,10 +53,11 @@ function applyAutoLayout(screens: Screen[]): MappedScreen[] {
     let x = s.flow_x ?? 0;
     let y = s.flow_y ?? 0;
     if (x === 0 && y === 0) {
-      const col = catCols[s.flow_category] ?? 0;
+      const cat = s.flow_category ?? 'core';
+      const col = catCols[cat] ?? 0;
       x = 60 + col * 220;
-      y = CAT_Y[s.flow_category] ?? 80;
-      catCols[s.flow_category] = col + 1;
+      y = CAT_Y[cat] ?? 80;
+      catCols[cat] = col + 1;
     }
     return {
       id:    s.id,
@@ -107,7 +108,6 @@ const SPIN_CSS = `@keyframes dg-spin { to { transform: rotate(360deg); } }`;
 
 export default function DesignGalleryScreen() {
   const { id: projectId } = useParams<{ id: string }>();
-  const navigate          = useNavigate();
 
   const [projectName,  setProjectName]  = useState('');
   const [screens,      setScreens]      = useState<Screen[]>([]);
@@ -154,7 +154,7 @@ export default function DesignGalleryScreen() {
         if (cancelled) return;
 
         setProjectName(projectRes.data.name);
-        setScreens((screensRes.data     as Screen[])            ?? []);
+        setScreens((screensRes.data as unknown as Screen[]) ?? []);
         setConnections((connectionsRes.data as ScreenConnection[]) ?? []);
       } catch (err: unknown) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load');
@@ -210,8 +210,7 @@ export default function DesignGalleryScreen() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
-      const supabaseUrl = (supabase as { supabaseUrl?: string }).supabaseUrl
-        ?? import.meta.env.VITE_SUPABASE_URL ?? '';
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
       const efUrl = `${supabaseUrl}/functions/v1/prototype-export?project_id=${projectId}`;
 
       const res = await fetch(efUrl, {

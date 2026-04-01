@@ -247,7 +247,7 @@ export default function PromoScreen() {
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [_unsavedChanges, setUnsavedChanges] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);

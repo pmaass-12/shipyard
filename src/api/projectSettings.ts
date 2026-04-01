@@ -41,7 +41,7 @@ export async function getProjectSettings(
     .single();
 
   if (error) throw error;
-  return data as Omit<ProjectSettings, 'test_mode_pin_hash'>;
+  return data as unknown as Omit<ProjectSettings, 'test_mode_pin_hash'>;
 }
 
 /**
@@ -61,5 +61,5 @@ export async function updateProjectSettings(
     .single();
 
   if (error) throw error;
-  return data as Omit<ProjectSettings, 'test_mode_pin_hash'>;
+  return data as unknown as Omit<ProjectSettings, 'test_mode_pin_hash'>;
 }

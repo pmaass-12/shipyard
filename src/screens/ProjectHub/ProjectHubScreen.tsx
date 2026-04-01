@@ -26,6 +26,7 @@ import RegressionCard from '@/components/RegressionCard';
 import HealthReportCard from '@/components/HealthReportCard';
 import { isFirstRunMode, completeFirstRun } from '@/api/firstRun';
 import FeatureCreationSheet from '@/components/FeatureCreationSheet'; // Build 054
+import { supabase } from '@/lib/supabase'; // Build 056
 
 // ── Phase badge ────────────────────────────────────────────────────────────
 

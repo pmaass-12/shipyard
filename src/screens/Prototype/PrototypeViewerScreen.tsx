@@ -59,10 +59,11 @@ function applyAutoLayout(screens: Screen[]): MappedScreen[] {
     let x = s.flow_x ?? 0;
     let y = s.flow_y ?? 0;
     if (x === 0 && y === 0) {
-      const col = catCols[s.flow_category] ?? 0;
+      const cat = s.flow_category ?? 'core';
+      const col = catCols[cat] ?? 0;
       x = 60 + col * 220;
-      y = CAT_Y[s.flow_category] ?? 80;
-      catCols[s.flow_category] = col + 1;
+      y = CAT_Y[cat] ?? 80;
+      catCols[cat] = col + 1;
     }
     return {
       id:    s.id,
@@ -157,8 +158,8 @@ export default function PrototypeViewerScreen() {
         const injected = injectPrototypeData(
           templateHtml,
           project.name,
-          (screensRes.data   as Screen[])            ?? [],
-          (connectionsRes.data as ScreenConnection[]) ?? [],
+          (screensRes.data as unknown as Screen[])            ?? [],
+          (connectionsRes.data as unknown as ScreenConnection[]) ?? [],
         );
 
         setProjectName(project.name);

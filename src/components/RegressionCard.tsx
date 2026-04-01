@@ -46,7 +46,7 @@ function formatDate(iso: string): string {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function RunningState({ onRefresh }: { onRefresh: () => void }) {
+function RunningState({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
   return (
     <div
       data-testid="regression-status-running"

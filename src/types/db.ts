@@ -695,6 +695,12 @@ export interface Screen {
   created_at:  string;
   updated_at:  string;
   deleted_at:  string | null;
+  // Build 061: flow map + mockup fields
+  flow_x:        number | null;
+  flow_y:        number | null;
+  flow_icon:     string | null;
+  flow_category: string | null;
+  mockup_file:   string | null;
 }
 
 export interface ScreenSummary {
@@ -825,10 +831,10 @@ export interface PmChatMessage {
   compacted:      boolean;        // true = archived into a compacted_threads summary
   compacted_into: string | null;  // FK → compacted_threads.id
   // Build 046: persona split
-  persona:        'reeve' | 'morgan';
+  persona?:        'reeve' | 'morgan';
   // Build 048: action card columns
-  card_type:      CardType;
-  action_payload: ActionPayload;
+  card_type?:      CardType;
+  action_payload?: ActionPayload;
   created_at:     string;
 }
 
@@ -1645,6 +1651,7 @@ export interface Lead {
   contact_name:   string | null;
   contact_email:  string | null;
   contact_phone:  string | null;
+  job_title:      string | null;  // Build 047
   research_notes: string | null;
   confidence:     LeadConfidence;
   status:         LeadStatus;

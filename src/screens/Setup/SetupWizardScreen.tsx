@@ -27,9 +27,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/context/ToastContext';
 import {
-  saveWizardIdentity,
   saveAudienceType,
-  saveMonetizationType,
   triggerWizardDefaults,
 } from '@/api/wizard';
 import {
@@ -69,34 +67,12 @@ interface Screen1Data {
   color: string;
 }
 
-function Screen1({ projectId, onNext }: { projectId: string; onNext: () => void }) {
+function Screen1({ projectId: _projectId, onNext: _onNext }: { projectId: string; onNext: () => void }) {
   const [data, setData] = useState<Screen1Data>({
     name: '',
     description: '',
     color: COLOR_SWATCHES[0],
   });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const { showToast } = useToast();
-
-  async function handleNext() {
-    setSaving(true);
-    setError('');
-    try {
-      await saveWizardIdentity(projectId, {
-        name: data.name,
-        description: data.description,
-        color: data.color,
-      });
-      showToast('Project identity saved');
-      onNext();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div data-testid="wizard-screen-1" style={screenStyle}>
       <div style={contentStyle}>
@@ -184,7 +160,6 @@ function Screen1({ projectId, onNext }: { projectId: string; onNext: () => void 
           </div>
         </div>
 
-        {error && <p style={{ color: T.red, fontSize: 12, margin: '12px 0 0' }}>{error}</p>}
       </div>
     </div>
   );
@@ -228,12 +203,10 @@ function Screen2({
   onNext: (audienceType: AudienceType) => void;
 }) {
   const [selected, setSelected] = useState<AudienceType>('b2c');
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const { showToast } = useToast();
 
   async function handleNext() {
-    setSaving(true);
     setError('');
     try {
       await saveAudienceType(projectId, selected);
@@ -241,8 +214,6 @@ function Screen2({
       onNext(selected);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -364,31 +335,13 @@ const MONETIZATION_CARDS: MonetizationCard[] = [
 ];
 
 function Screen3({
-  projectId,
-  onNext,
+  projectId: _projectId,
+  onNext: _onNext,
 }: {
   projectId: string;
   onNext: () => void;
 }) {
   const [selected, setSelected] = useState<MonetizationType>('free');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const { showToast } = useToast();
-
-  async function handleNext() {
-    setSaving(true);
-    setError('');
-    try {
-      await saveMonetizationType(projectId, selected);
-      showToast('Monetization model saved');
-      onNext();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div data-testid="wizard-screen-3" style={screenStyle}>
       <div style={contentStyle}>
@@ -440,7 +393,6 @@ function Screen3({
           You can add multiple monetization models later in Admin Console.
         </p>
 
-        {error && <p style={{ color: T.red, fontSize: 12, margin: '12px 0 0' }}>{error}</p>}
       </div>
     </div>
   );
@@ -448,13 +400,8 @@ function Screen3({
 
 // ── Screen 4: File Uploads ────────────────────────────────────────────────
 
-function Screen4({ onNext }: { onNext: () => void }) {
+function Screen4({ onNext: _onNext }: { onNext: () => void }) {
   const [isDragging, setIsDragging] = useState(false);
-
-  function handleNext() {
-    // Optional screen — skip for now (file upload deferred to future build)
-    onNext();
-  }
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -547,7 +494,7 @@ function Screen4({ onNext }: { onNext: () => void }) {
 
 function Screen5({
   projectId,
-  onCompletion,
+  onCompletion: _onCompletion,
 }: {
   projectId: string;
   onCompletion: () => void;
@@ -702,7 +649,6 @@ function Screen5({
 
 export default function SetupWizardScreen() {
   const { id: projectId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
 
   const [currentScreen, setCurrentScreen] = useState(1);
   const [audienceType, setAudienceType] = useState<AudienceType>('b2c');
@@ -773,7 +719,6 @@ export default function SetupWizardScreen() {
 
   const showBackBtn = currentScreen > 1;
   const showSkipBtn = currentScreen === 4;
-  const showPrimaryCta = currentScreen === 5;
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, color: T.text, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', display: 'flex', flexDirection: 'column' }}>

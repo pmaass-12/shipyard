@@ -6,7 +6,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import type { PromoPageConfig, PromoStep, PromoFeatureCard } from '@/types/db';
+import type { PromoPageConfig } from '@/types/db';
 
 // ── Queries ────────────────────────────────────────────────────────────────
 

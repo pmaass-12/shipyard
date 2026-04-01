@@ -328,7 +328,7 @@ const PRIORITY_DOT: Record<string, string> = {
 
 function BottomSheet({
   items,
-  projectId,
+  projectId: _projectId,
   onClose,
   onAction,
 }: {

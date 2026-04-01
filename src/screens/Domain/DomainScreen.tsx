@@ -21,7 +21,6 @@ import {
   checkDomainStatus,
   deriveDnsInstructions,
   type CustomDomainConfig,
-  type DnsInstructions,
 } from '@/api/customDomain';
 import { useToast } from '@/context/ToastContext';
 

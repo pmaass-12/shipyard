@@ -13,17 +13,15 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Copy, CheckCircle2, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import {
   getEmailSenderConfig,
   saveEmailSenderConfig,
   saveResendApiKey,
   getEmailTemplates,
   updateEmailTemplate,
-  toggleTemplateStatus,
   generateEmailTemplates,
   type EmailTemplate,
-  type EmailSenderConfig,
   type EmailTemplateType,
   type EmailConnectionStatus,
 } from '@/api/email';

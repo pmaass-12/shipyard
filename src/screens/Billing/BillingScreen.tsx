@@ -27,7 +27,6 @@ import {
   detectStripeMode,
   parseFeatures,
   stringifyFeatures,
-  type BillingConfig,
   type BillingPlan,
   type BillingModel,
 } from '@/api/billing';

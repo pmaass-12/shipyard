@@ -6,7 +6,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import type { BugWithContext, BugSeverity, BugStatus, Bug, BugAnnotation } from '@/types/db';
+import type { BugWithContext, BugSeverity, BugStatus, Bug } from '@/types/db';
 
 // ── Queries ────────────────────────────────────────────────────────────────
 

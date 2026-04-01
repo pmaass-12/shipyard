@@ -16,7 +16,7 @@ import {
   triageBug,
   deleteBug,
 } from '@/api/bugs';
-import type { BugWithContext, BugSeverity, BugStatus, Bug } from '@/types/db';
+import type { BugWithContext, BugSeverity, BugStatus } from '@/types/db';
 
 const T = {
   bg: '#0f0f10',
@@ -58,7 +58,7 @@ function getStatusLabel(status: BugStatus): string {
 
 function NewBugForm({
   projectId,
-  onBugCreated,
+  onBugCreated: _onBugCreated,
   onClose,
 }: {
   projectId: string;

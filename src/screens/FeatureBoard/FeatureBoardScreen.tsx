@@ -15,7 +15,6 @@ import { useParams, useNavigate, Link }              from 'react-router-dom';
 import { supabase }                                  from '@/lib/supabase';
 import { Avatar }                                    from '@/components/Avatar';
 import FeatureCreationSheet                          from '@/components/FeatureCreationSheet';
-import type { ProjectPhase }                         from '@/types/db';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -264,7 +263,6 @@ function DeployConfirmModal({
   const [deploying, setDeploying] = useState(false);
   const [error,     setError]     = useState('');
 
-  const PHASE_ORDER: Record<string, number> = { alpha: 1, beta: 2, production: 3 };
   const showPromoWarning = target === 'production' && projectPhase !== 'production';
 
   async function handleDeploy() {
@@ -502,7 +500,7 @@ function BoardColumn({
   def,
   features,
   projectId,
-  projectPhase,
+  projectPhase: _projectPhase,
   selectedIds,
   onSelect,
   totalFeatures,
@@ -612,7 +610,7 @@ function BoardColumn({
 
 // ── Mobile list view ─────────────────────────────────────────────────────
 
-function MobileListView({ features, projectId, projectPhase }: {
+function MobileListView({ features, projectId, projectPhase: _projectPhase }: {
   features:     BoardFeature[];
   projectId:    string;
   projectPhase: string;
@@ -669,8 +667,6 @@ function MobileListView({ features, projectId, projectPhase }: {
 
 export default function FeatureBoardScreen() {
   const { id: projectId }  = useParams<{ id: string }>();
-  const navigate            = useNavigate();
-
   const [features,       setFeatures]       = useState<BoardFeature[]>([]);
   const [projectName,    setProjectName]     = useState('Project');
   const [projectPhase,   setProjectPhase]    = useState<string>('alpha');
@@ -705,7 +701,7 @@ export default function FeatureBoardScreen() {
           .single(),
       ]);
 
-      setFeatures((featureRes.data ?? []) as BoardFeature[]);
+      setFeatures((featureRes.data ?? []) as unknown as BoardFeature[]);
       if (projectRes.data) {
         setProjectName(projectRes.data.name);
         setProjectPhase(projectRes.data.phase ?? 'alpha');

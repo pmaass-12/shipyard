@@ -5,7 +5,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import type { ProjectHubStats, HumanTask, HumanTaskStatus, Project } from '@/types/db';
+import type { ProjectHubStats, HumanTask, Project } from '@/types/db';
 
 // ── Queries ────────────────────────────────────────────────────────────────
 

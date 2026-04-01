@@ -19,7 +19,7 @@ import {
 } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  ArrowLeft, CheckCircle, Clock, Lock, Send,
+  ArrowLeft, CheckCircle, Lock, Send,
   AlertTriangle, Loader2, ChevronRight,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';

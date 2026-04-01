@@ -310,7 +310,7 @@ function UploadDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const user = supabase.auth.getUser();
+  void supabase.auth.getUser(); // auth check — result unused
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

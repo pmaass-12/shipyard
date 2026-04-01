@@ -14,7 +14,6 @@ import {
   getArtifactDownloadUrl,
   deleteArtifact,
   uploadArtifact,
-  buildStoragePath,
 } from '@/api/artifacts';
 import type { Artifact, ArtifactType } from '@/types/db';
 

@@ -15,8 +15,6 @@ import {
   getActiveChangeCount,
   createChange,
   updateChangeStatus,
-  updateChangePriority,
-  startChangeIteration,
   dismissChange,
 } from '@/api/changes';
 import type { Change, ChangeStatus, ChangePriority, ChangeTargetType } from '@/types/db';
@@ -352,7 +350,7 @@ function NewChangePanel({
   const [targetType, setTargetType] = useState<ChangeTargetType>('screen');
   const [targetId, setTargetId] = useState('');
   const [priority, setPriority] = useState<ChangePriority>('p1');
-  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [screenshotUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

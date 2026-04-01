@@ -12,13 +12,12 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   getGithubConfig,
   saveGithubRepoConfig,
   disconnectGithub,
   getDeployHistory,
-  deriveGithubRepoUrl,
   deriveCommitUrl,
   shortSha,
   type GithubConfig,
@@ -45,7 +44,6 @@ const T = {
 
 export default function GithubScreen() {
   const { id: projectId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { showToast } = useToast();
 
   const [config, setConfig] = useState<GithubConfig | null>(null);
@@ -167,7 +165,6 @@ export default function GithubScreen() {
     );
   }
 
-  const repoUrl = config ? deriveGithubRepoUrl(config) : null;
   const isConnected = !!config?.github_connected_at;
 
   return (

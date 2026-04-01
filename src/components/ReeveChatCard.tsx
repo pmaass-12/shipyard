@@ -129,7 +129,7 @@ function DoneBadge({ color }: { color: string }) {
 
 // ── design_approval card ───────────────────────────────────────────────────
 
-function DesignApprovalCard({ payload, projectId }: {
+function DesignApprovalCard({ payload, projectId: _projectId }: {
   payload:   DesignApprovalPayload;
   projectId: string;
 }) {

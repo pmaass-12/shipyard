@@ -71,7 +71,7 @@ export async function getScreen(screenId: string): Promise<ScreenSummary> {
 export async function getScreenFeatures(screenId: string): Promise<ScreenFeatureRow[]> {
   const { data, error } = await supabase
     .from('features')
-    .select('id, name, maturity, status, workflow_step, complexity, priority, created_at')
+    .select('id, name, phase, status, pipeline_step, complexity, priority, created_at')
     .eq('screen_id', screenId)
     .order('created_at', { ascending: false });
   if (error) throw error;

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { ToastProvider }         from '@/context/ToastContext';
 import { AuthGuard }             from '@/components/AuthGuard';
 import FeedbackWidget            from '@/components/FeedbackWidget';
