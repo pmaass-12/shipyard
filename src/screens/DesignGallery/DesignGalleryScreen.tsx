@@ -15,6 +15,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase }                     from '@/lib/supabase';
 import type { Screen }                  from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ export default function DesignGalleryScreen() {
         setScreens((screensRes.data as unknown as Screen[]) ?? []);
         setConnections((connectionsRes.data as ScreenConnection[]) ?? []);
       } catch (err: unknown) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load');
+        if (!cancelled) setError(extractErrorMessage(err, 'Failed to load'));
       } finally {
         if (!cancelled) setLoading(false);
       }

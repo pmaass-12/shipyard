@@ -27,6 +27,7 @@ import HealthReportCard from '@/components/HealthReportCard';
 import { isFirstRunMode, completeFirstRun } from '@/api/firstRun';
 import FeatureCreationSheet from '@/components/FeatureCreationSheet'; // Build 054
 import { supabase } from '@/lib/supabase'; // Build 056
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Phase badge ────────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ function LaunchModal({
       onLaunched();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Launch failed');
+      setError(extractErrorMessage(err, 'Launch failed'));
     } finally {
       setLaunching(false);
     }

@@ -36,6 +36,7 @@ import {
   getWizardDotCount,
 } from '@/types/db';
 import type { AudienceType, MonetizationType } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Design Tokens ─────────────────────────────────────────────────────────
 
@@ -213,7 +214,7 @@ function Screen2({
       showToast('Audience type saved');
       onNext(selected);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed');
+      setError(extractErrorMessage(err, 'Save failed'));
     }
   }
 
@@ -518,7 +519,7 @@ function Screen5({
       showToast('Project setup complete!');
       navigate(`/projects/${projectId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Completion failed');
+      setError(extractErrorMessage(err, 'Completion failed'));
       console.error('Wizard completion error:', err);
     } finally {
       setTriggering(false);
@@ -533,7 +534,7 @@ function Screen5({
       showToast('Project setup complete!');
       navigate(`/projects/${projectId}/setup/infra`); // routing-fix-031: /deploy has no route; infra wizard lives at /setup/infra
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Completion failed');
+      setError(extractErrorMessage(err, 'Completion failed'));
       console.error('Wizard completion error:', err);
     } finally {
       setTriggering(false);

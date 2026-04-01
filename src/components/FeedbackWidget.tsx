@@ -17,6 +17,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import type { Annotation, ConsoleError, BugSeverity } from '../types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -442,7 +443,7 @@ export default function FeedbackWidget() {
       setStep('success');
       setTimeout(reset, 2500);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Unknown error');
+      setErrorMsg(extractErrorMessage(err, 'Unknown error'));
       setStep('error');
     }
   }

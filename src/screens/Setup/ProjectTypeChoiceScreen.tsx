@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Anchor } from 'lucide-react';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 
@@ -94,11 +95,7 @@ export default function ProjectTypeChoiceScreen() {
     } catch (err) {
       // Supabase PostgrestError is a plain object, not an Error instance — extract .message from both
       const msg =
-        err instanceof Error
-          ? err.message
-          : typeof (err as Record<string, unknown>)?.message === 'string'
-            ? (err as Record<string, unknown>).message as string
-            : 'Failed to save. Try again.';
+        extractErrorMessage(err, 'Failed to save. Try again.');
       setError(msg);
     } finally {
       setSaving(false);

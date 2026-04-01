@@ -16,6 +16,7 @@ import {
   uploadArtifact,
 } from '@/api/artifacts';
 import type { Artifact, ArtifactType } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 const T = {
   bg: '#0f0f10',
@@ -371,7 +372,7 @@ function UploadDialog({
       onClose();
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      setError(extractErrorMessage(err, 'Upload failed'));
     } finally {
       setLoading(false);
     }
@@ -532,7 +533,7 @@ export default function ArtifactsScreen() {
       setArtifacts(data);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load artifacts');
+      setError(extractErrorMessage(err, 'Failed to load artifacts'));
     } finally {
       setLoading(false);
     }

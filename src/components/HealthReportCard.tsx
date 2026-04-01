@@ -24,6 +24,7 @@ import {
   generateHealthReport,
 } from '@/api/projectHealth';
 import type { ProjectHealthReport } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 const MORGAN_COLOR = '#475569'; // slate-600
 
@@ -82,7 +83,7 @@ export default function HealthReportCard({ projectId }: HealthReportCardProps) {
       setReport(r);
       setCollapsed(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Generation failed');
+      setError(extractErrorMessage(err, 'Generation failed'));
     } finally {
       setGenerating(false);
     }

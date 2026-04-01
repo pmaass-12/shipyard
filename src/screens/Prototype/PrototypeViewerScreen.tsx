@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase }              from '@/lib/supabase';
 import type { Screen }           from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -165,7 +166,7 @@ export default function PrototypeViewerScreen() {
         setProjectName(project.name);
         setSrcDoc(injected);
       } catch (err: unknown) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load prototype');
+        if (!cancelled) setError(extractErrorMessage(err, 'Failed to load prototype'));
       } finally {
         if (!cancelled) setLoading(false);
       }

@@ -48,6 +48,7 @@ import type {
 } from '@/types/db';
 import { STEP_LABELS, STEP_NAMES } from '@/types/db';
 import PipelineStrip from '@/components/PipelineStrip';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
@@ -446,7 +447,7 @@ export default function FeatureWorkflowScreen() {
         setTasks(t);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load feature');
+      setError(extractErrorMessage(err, 'Failed to load feature'));
     } finally {
       setLoading(false);
     }

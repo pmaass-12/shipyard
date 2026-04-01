@@ -26,6 +26,7 @@ import { getProjectSummary } from '@/api/projects';
 import { useToast } from '@/context/ToastContext';
 import type { SeoSettings, SeoSettingsPatch, ProjectSummary, RobotsDirective } from '@/types/db';
 import { seoIsDirty } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 
@@ -510,7 +511,7 @@ export default function SeoScreen() {
       setProject(proj);
       setSeo(seoRow);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to load SEO settings', 'error');
+      showToast(extractErrorMessage(err, 'Failed to load SEO settings'), 'error');
     } finally {
       setLoading(false);
     }
@@ -540,7 +541,7 @@ export default function SeoScreen() {
       setSeo(updated);
       showToast('Saved');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Save failed — try again', 'error');
+      showToast(extractErrorMessage(err, 'Save failed — try again'), 'error');
     }
   }
 
@@ -594,7 +595,7 @@ export default function SeoScreen() {
       const updated = await updateSeoField(projectId, { robots_directive: v });
       setSeo(updated);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Save failed', 'error');
+      showToast(extractErrorMessage(err, 'Save failed'), 'error');
     }
   }
 
@@ -604,7 +605,7 @@ export default function SeoScreen() {
       const updated = await updateSeoField(projectId, { sitemap_enabled: v });
       setSeo(updated);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Save failed', 'error');
+      showToast(extractErrorMessage(err, 'Save failed'), 'error');
     }
   }
 

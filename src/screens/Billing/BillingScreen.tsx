@@ -31,6 +31,7 @@ import {
   type BillingModel,
 } from '@/api/billing';
 import { useToast } from '@/context/ToastContext';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ export function BillingScreen() {
       setPublishableKey(config.stripe_publishable_key ?? '');
       setPlans(plansList);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to load billing config', 'error');
+      showToast(extractErrorMessage(err, 'Failed to load billing config'), 'error');
     } finally {
       setLoading(false);
     }
@@ -121,7 +122,7 @@ export function BillingScreen() {
         showToast('Billing disabled', 'success');
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to toggle billing', 'error');
+      showToast(extractErrorMessage(err, 'Failed to toggle billing'), 'error');
       // Revert state
       setBillingEnabled(!billingEnabled);
     } finally {
@@ -137,7 +138,7 @@ export function BillingScreen() {
       setBillingModel(model);
       showToast(`Billing model set to ${model}`, 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to update billing model', 'error');
+      showToast(extractErrorMessage(err, 'Failed to update billing model'), 'error');
     } finally {
       setSaving(false);
     }
@@ -156,7 +157,7 @@ export function BillingScreen() {
       showToast('Stripe keys saved', 'success');
       setWebhookSecret('');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to save Stripe keys', 'error');
+      showToast(extractErrorMessage(err, 'Failed to save Stripe keys'), 'error');
     } finally {
       setSaving(false);
     }
@@ -178,7 +179,7 @@ export function BillingScreen() {
       setPlans([...plans, newPlan]);
       showToast('Plan added', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to add plan', 'error');
+      showToast(extractErrorMessage(err, 'Failed to add plan'), 'error');
     } finally {
       setAddingPlan(false);
     }
@@ -210,7 +211,7 @@ export function BillingScreen() {
           p.id === planId ? { ...p, isSaving: false } : p
         )
       );
-      showToast(err instanceof Error ? err.message : 'Failed to update plan', 'error');
+      showToast(extractErrorMessage(err, 'Failed to update plan'), 'error');
     }
   }
 
@@ -235,7 +236,7 @@ export function BillingScreen() {
           p.id === planId ? { ...p, isDeleting: false } : p
         )
       );
-      showToast(err instanceof Error ? err.message : 'Failed to delete plan', 'error');
+      showToast(extractErrorMessage(err, 'Failed to delete plan'), 'error');
     }
   }
 

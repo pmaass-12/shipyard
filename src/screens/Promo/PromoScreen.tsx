@@ -18,6 +18,7 @@ import {
 import { getProject } from '@/api/projects';
 import type { PromoPageConfig, PromoStep, PromoFeatureCard } from '@/types/db';
 import type { Project } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 const T = {
   bg: '#0f0f10',
@@ -261,7 +262,7 @@ export default function PromoScreen() {
       setConfig(configData ?? null);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load promo config');
+      setError(extractErrorMessage(err, 'Failed to load promo config'));
     } finally {
       setLoading(false);
     }

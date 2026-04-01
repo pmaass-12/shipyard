@@ -22,6 +22,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -162,7 +163,7 @@ export default function FeatureCreationSheet({
         onClose();
       }, 1200);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create feature. Please try again.');
+      setError(extractErrorMessage(err, 'Failed to create feature. Please try again.'));
     } finally {
       setSubmitting(false);
     }

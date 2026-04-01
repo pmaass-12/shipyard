@@ -16,6 +16,7 @@ import {
   type FilterPill,
 } from '@/api/projects';
 import type { ProjectSummary, NewProjectInput, UpdateProjectInput, ProjectColor } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 interface UseProjectsReturn {
   // Data
@@ -50,7 +51,7 @@ export function useProjects(currentUserId: string): UseProjectsReturn {
       const data = await listProjects();
       setProjects(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load projects.');
+      setError(extractErrorMessage(err, 'Failed to load projects.'));
     } finally {
       setLoading(false);
     }

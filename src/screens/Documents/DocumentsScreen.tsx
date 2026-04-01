@@ -19,6 +19,7 @@ import {
   ON_DEMAND_CATEGORIES,
 } from '@/api/documents';
 import type { ProjectDocument, DocumentCategory } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 const T = {
   bg: '#0f0f10',
@@ -340,7 +341,7 @@ function UploadDialog({
       onClose();
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      setError(extractErrorMessage(err, 'Upload failed'));
     } finally {
       setLoading(false);
     }
@@ -536,7 +537,7 @@ export default function DocumentsScreen() {
       setDocuments(data);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load documents');
+      setError(extractErrorMessage(err, 'Failed to load documents'));
     } finally {
       setLoading(false);
     }

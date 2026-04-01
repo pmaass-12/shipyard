@@ -55,6 +55,7 @@ import type {
   WaitlistStats,
   WaitlistStatus,
 } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Design tokens (matching dark theme spec) ──────────────────────────────
 
@@ -243,7 +244,7 @@ function RtbfFlow({
       setStep('done');
       setTimeout(onDone, 1800);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Delete failed', 'error');
+      showToast(extractErrorMessage(err, 'Delete failed'), 'error');
       setStep('confirm');
     }
   }
@@ -349,7 +350,7 @@ function UserDetailPanel({
       setAction('none');
       showToast(`Role updated to ${roleDraft}`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -366,7 +367,7 @@ function UserDetailPanel({
       }
       setAction('none');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -375,7 +376,7 @@ function UserDetailPanel({
       await sendPasswordReset(user.id);
       showToast(`Reset email sent to ${user.email}`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -386,7 +387,7 @@ function UserDetailPanel({
       window.open(url, '_blank');
       setAction('none');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -396,7 +397,7 @@ function UserDetailPanel({
       window.open(downloadUrl, '_blank');
       showToast('Export ready — opening download link (expires in 5 minutes).');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Export failed', 'error');
+      showToast(extractErrorMessage(err, 'Export failed'), 'error');
     }
   }
 
@@ -591,7 +592,7 @@ function AuditLogTab() {
       setEntries(data);
       setTotal(t);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to load audit log', 'error');
+      showToast(extractErrorMessage(err, 'Failed to load audit log'), 'error');
     } finally {
       setLoading(false);
     }
@@ -699,7 +700,7 @@ function WaitlistSignupsTab({ projectId, onBack }: { projectId: string; onBack: 
       setSignups(data);
       setStats(s);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to load signups', 'error');
+      showToast(extractErrorMessage(err, 'Failed to load signups'), 'error');
     } finally {
       setLoading(false);
     }
@@ -722,7 +723,7 @@ function WaitlistSignupsTab({ projectId, onBack }: { projectId: string; onBack: 
       showToast(`Approval email sent to ${signup.email}`);
       await load();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Approval failed', 'error');
+      showToast(extractErrorMessage(err, 'Approval failed'), 'error');
     }
   }
 
@@ -733,7 +734,7 @@ function WaitlistSignupsTab({ projectId, onBack }: { projectId: string; onBack: 
       setActionId(null);
       await load();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -745,7 +746,7 @@ function WaitlistSignupsTab({ projectId, onBack }: { projectId: string; onBack: 
       setActionId(null);
       await load();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1087,7 +1088,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setTestModeEnabled(v);
       showToast(`Test Mode ${v ? 'enabled' : 'disabled'}`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1110,7 +1111,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setPinDraft('');
       showToast('PIN updated');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     } finally {
       setPinSaving(false);
     }
@@ -1123,7 +1124,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setTourEnabled(v);
       showToast(`Onboarding Tour ${v ? 'enabled' : 'disabled'}`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1141,7 +1142,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setTourSteps(steps);
       showToast('Tour regenerated');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Tour regeneration failed', 'error');
+      showToast(extractErrorMessage(err, 'Tour regeneration failed'), 'error');
     } finally {
       setRegenLoading(false);
     }
@@ -1154,7 +1155,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setEditingStep(null);
       showToast('Step saved');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1165,7 +1166,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setWnEnabled(v);
       showToast(`What's New ${v ? 'enabled' : 'disabled'}`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1179,7 +1180,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setEditingItem(null);
       showToast('Item saved');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1190,7 +1191,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setWaitlistEnabled(v);
       showToast(`Waitlist ${v ? 'enabled' : 'disabled'}`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1221,7 +1222,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setHlEditing(false);
       showToast('Highlights saved');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1231,7 +1232,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       setHighlights(prev => prev.filter(h => h.id !== id));
       showToast('Highlight removed');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1242,7 +1243,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       await advanceProjectPhase(projectId, 'beta');
       showToast('Project moved to Beta phase');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      showToast(extractErrorMessage(err, 'Failed'), 'error');
     }
   }
 
@@ -1265,7 +1266,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       // If key was cleared, reset test status
       if (!apiKey.trim()) setApiKeyStatus('idle');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to save', 'error');
+      showToast(extractErrorMessage(err, 'Failed to save'), 'error');
     } finally {
       setApiKeySaving(false);
     }
@@ -1309,7 +1310,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
         );
       showToast('Model saved');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to save', 'error');
+      showToast(extractErrorMessage(err, 'Failed to save'), 'error');
     } finally {
       setModelSaving(false);
     }
@@ -2042,7 +2043,7 @@ export default function AdminScreen() {
         const data = await listAdminUsers();
         setUsers(data);
       } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Failed to load users', 'error');
+        showToast(extractErrorMessage(err, 'Failed to load users'), 'error');
       } finally {
         setLoading(false);
       }

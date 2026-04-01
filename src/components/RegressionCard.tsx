@@ -22,6 +22,7 @@ import {
   subscribeToRegressionRun,
 } from '@/api/projectHealth';
 import type { RegressionRun, RegressionTestResult } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -160,7 +161,7 @@ export default function RegressionCard({ projectId }: RegressionCardProps) {
         status: 'running',
       } as RegressionRun));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start regression');
+      setError(extractErrorMessage(err, 'Failed to start regression'));
     } finally {
       setTriggering(false);
     }

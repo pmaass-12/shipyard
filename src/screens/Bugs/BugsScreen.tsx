@@ -17,6 +17,7 @@ import {
   deleteBug,
 } from '@/api/bugs';
 import type { BugWithContext, BugSeverity, BugStatus } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 const T = {
   bg: '#0f0f10',
@@ -101,7 +102,7 @@ function NewBugForm({
       onClose();
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to create bug');
+      setError(extractErrorMessage(err, 'Failed to create bug'));
     } finally {
       setLoading(false);
     }
@@ -529,7 +530,7 @@ export default function BugsScreen() {
       setP0Count(p0CountData);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load bugs');
+      setError(extractErrorMessage(err, 'Failed to load bugs'));
     } finally {
       setLoading(false);
     }

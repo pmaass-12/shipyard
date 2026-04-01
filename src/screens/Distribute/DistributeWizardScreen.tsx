@@ -19,6 +19,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 
@@ -847,10 +848,11 @@ export default function DistributeWizardScreen() {
       setError('');
       try {
         // 1. Save project_type = 'website'
-        await supabase
+        const { error: projectTypeError } = await supabase
           .from('projects')
           .update({ project_type: 'website' })
           .eq('id', projectId!);
+        if (projectTypeError) throw projectTypeError;
 
         // 2. Save wizard answers to project_settings
         const wizardAnswers = {
@@ -892,7 +894,9 @@ export default function DistributeWizardScreen() {
         setScreen(5);
         window.scrollTo(0, 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Save failed. Try again.');
+        const msg =
+          extractErrorMessage(err, 'Save failed. Try again.');
+        setError(msg);
       } finally {
         setSaving(false);
       }

@@ -38,6 +38,7 @@ import {
 }                                 from '@/lib/auth';
 import { updateProject }          from '@/api/projects';
 import { useToast }               from '@/context/ToastContext';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ function AuthStep({ onDone }: { onDone: () => void }) {
         setView('done');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setError(extractErrorMessage(err, 'Authentication failed'));
     } finally {
       setLoading(false);
     }
@@ -151,7 +152,7 @@ function AuthStep({ onDone }: { onDone: () => void }) {
       // not to /projects (which abandons the wizard state).
       await signInWithGoogle(window.location.href);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Google sign-in failed', 'error');
+      showToast(extractErrorMessage(err, 'Google sign-in failed'), 'error');
     }
   }
 
@@ -369,7 +370,7 @@ function ClaudeApiStep({
       showToast(`Claude API key saved · Model: ${MODELS.find(m => m.key === model)?.label}`);
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed');
+      setError(extractErrorMessage(err, 'Save failed'));
     } finally {
       setSaving(false);
     }

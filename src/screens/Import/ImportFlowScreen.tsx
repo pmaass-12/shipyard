@@ -54,6 +54,7 @@ import type {
   ImportTableData,
   ImportScreenData,
 } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -151,7 +152,7 @@ function Stage1Sources({
       });
       onCreated(job);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start import');
+      setError(extractErrorMessage(err, 'Failed to start import'));
       setStarting(false);
     }
   }
@@ -388,7 +389,7 @@ function Stage3Review({
       const result = await finaliseImport(job.id);
       onDone({ screens: result.screens_created, features: result.features_created, tables: result.tables_created });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import failed');
+      setError(extractErrorMessage(err, 'Import failed'));
       setConfirm(false);
     }
   }

@@ -18,6 +18,7 @@ import {
   subscribeToBriefing,
 } from '@/api/namedTeam';
 import type { ProjectBriefing } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 interface DailyBriefingCardProps {
   projectId: string;
@@ -64,7 +65,7 @@ export default function DailyBriefingCard({ projectId }: DailyBriefingCardProps)
       setBriefing(result);
       setCollapsed(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Generation failed');
+      setError(extractErrorMessage(err, 'Generation failed'));
     } finally {
       setGenerating(false);
     }

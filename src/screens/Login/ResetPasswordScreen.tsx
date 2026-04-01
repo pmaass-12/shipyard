@@ -16,6 +16,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Anchor, Lock, Eye, EyeOff } from 'lucide-react';
 import { updatePassword } from '@/lib/auth';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 export default function ResetPasswordScreen() {
   const navigate = useNavigate();
@@ -47,7 +48,7 @@ export default function ResetPasswordScreen() {
       // Brief pause so the user sees the confirmation, then redirect
       setTimeout(() => navigate('/login', { replace: true }), 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setError(extractErrorMessage(err, 'Something went wrong.'));
     } finally {
       setLoading(false);
     }

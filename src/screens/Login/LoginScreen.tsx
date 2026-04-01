@@ -15,6 +15,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Anchor, Mail, Lock, Chrome, Eye, EyeOff } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail, signInWithGoogle, resetPasswordForEmail } from '@/lib/auth';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 type Mode = 'signin' | 'signup' | 'forgot';
 
@@ -56,7 +57,7 @@ export default function LoginScreen() {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setError(extractErrorMessage(err, 'Something went wrong.'));
     } finally {
       setLoading(false);
     }
@@ -69,7 +70,7 @@ export default function LoginScreen() {
       await signInWithGoogle();
       // Redirect handled by Supabase OAuth flow
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign-in failed.');
+      setError(extractErrorMessage(err, 'Google sign-in failed.'));
     }
   };
 
@@ -83,7 +84,7 @@ export default function LoginScreen() {
       await resetPasswordForEmail(forgotEmail);
       setSuccess('Check your email for a reset link.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setError(extractErrorMessage(err, 'Something went wrong.'));
     } finally {
       setLoading(false);
     }

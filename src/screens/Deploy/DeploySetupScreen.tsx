@@ -29,6 +29,7 @@ import {
 } from '@/api/deploySetup';
 import { useToast } from '@/context/ToastContext';
 import type { AccountConnection, DeployConfig } from '@/types/db';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ export default function DeploySetupScreen() {
       setState(prev => ({
         ...prev,
         supabaseValidStatus: 'invalid',
-        supabaseError: err instanceof Error ? err.message : 'Validation failed',
+        supabaseError: extractErrorMessage(err, 'Validation failed'),
       }));
     }
   }
@@ -232,7 +233,7 @@ export default function DeploySetupScreen() {
       navigate(`/projects/${projectId}`);
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Deploy failed',
+        extractErrorMessage(err, 'Deploy failed'),
         'error'
       );
     } finally {

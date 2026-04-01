@@ -26,6 +26,7 @@ import {
   type EmailConnectionStatus,
 } from '@/api/email';
 import { useToast } from '@/context/ToastContext';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ export function EmailScreen() {
 
       setTemplates(tpls);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to load email config', 'error');
+      showToast(extractErrorMessage(err, 'Failed to load email config'), 'error');
     } finally {
       setLoading(false);
     }
@@ -127,7 +128,7 @@ export function EmailScreen() {
 
       showToast('Sender config saved', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to save sender config', 'error');
+      showToast(extractErrorMessage(err, 'Failed to save sender config'), 'error');
     } finally {
       setSaving(false);
     }
@@ -144,7 +145,7 @@ export function EmailScreen() {
       setApiKey('');
       showToast('API key saved securely', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to save API key', 'error');
+      showToast(extractErrorMessage(err, 'Failed to save API key'), 'error');
     } finally {
       setSaving(false);
     }
@@ -177,7 +178,7 @@ export function EmailScreen() {
           t.id === templateId ? { ...t, isSaving: false } : t
         )
       );
-      showToast(err instanceof Error ? err.message : 'Failed to save template', 'error');
+      showToast(extractErrorMessage(err, 'Failed to save template'), 'error');
     }
   }
 
@@ -197,7 +198,7 @@ export function EmailScreen() {
       await loadData(); // Reload templates
       showToast('Templates regenerated', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to generate templates', 'error');
+      showToast(extractErrorMessage(err, 'Failed to generate templates'), 'error');
     } finally {
       setGeneratingTemplates(false);
     }
