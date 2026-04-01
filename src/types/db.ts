@@ -70,6 +70,8 @@ export interface Project {
   updated_at:       string;
   // Build 044: first-run experience
   first_run_completed_at?: string | null;  // NULL = first-run active (optional until migration applied)
+  // Build 047/051: project type path selection
+  project_type?: ProjectType;              // 'app' | 'website' | 'both'; default 'app'
 }
 
 // ── project_summary view row ──────────────────────────────────────────────

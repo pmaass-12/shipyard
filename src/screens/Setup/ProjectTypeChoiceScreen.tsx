@@ -92,7 +92,14 @@ export default function ProjectTypeChoiceScreen() {
         navigate(`/projects/${projectId}/distribute/wizard`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save. Try again.');
+      // Supabase PostgrestError is a plain object, not an Error instance — extract .message from both
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof (err as Record<string, unknown>)?.message === 'string'
+            ? (err as Record<string, unknown>).message as string
+            : 'Failed to save. Try again.';
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -107,7 +114,7 @@ export default function ProjectTypeChoiceScreen() {
       alignItems: 'center',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       color: T.text,
-      padding: '48px 24px 80px',
+      padding: '48px 24px 100px', // 100px bottom = clears fixed footer
     }}>
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 52 }}>
@@ -183,30 +190,40 @@ export default function ProjectTypeChoiceScreen() {
         })}
       </div>
 
-      {error && (
-        <p style={{ fontSize: 13, color: '#ef4444', marginBottom: 12 }}>{error}</p>
-      )}
-
-      <button
-        type="button"
-        onClick={handleContinue}
-        disabled={!selected || saving}
-        style={{
-          padding: '13px 36px', borderRadius: 12,
-          background: selected && !saving ? T.accent : T.border,
-          color: selected && !saving ? '#fff' : T.faint,
-          border: 'none', fontSize: 14, fontWeight: 600,
-          cursor: selected && !saving ? 'pointer' : 'default',
-          fontFamily: 'inherit', transition: 'all 0.12s',
-          width: '100%', maxWidth: 520,
-        }}
-      >
-        {saving ? 'Setting up…' : 'Continue →'}
-      </button>
-
-      <p style={{ marginTop: 20, fontSize: 12, color: T.faint, textAlign: 'center', maxWidth: 380 }}>
+      <p style={{ marginTop: 4, fontSize: 12, color: T.faint, textAlign: 'center', maxWidth: 380 }}>
         Not sure? Start with "Build a web app" — it's the original Shipyard path.
       </p>
+
+      {/* Fixed bottom bar — always visible regardless of viewport height */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        background: 'rgba(245,245,247,0.92)',
+        backdropFilter: 'blur(12px)',
+        borderTop: `1px solid ${T.border}`,
+        padding: '12px 24px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+        zIndex: 100,
+      }}>
+        {error && (
+          <p style={{ fontSize: 13, color: '#ef4444', margin: 0 }}>{error}</p>
+        )}
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={!selected || saving}
+          style={{
+            padding: '13px 36px', borderRadius: 12,
+            background: selected && !saving ? T.accent : T.border,
+            color: selected && !saving ? '#fff' : T.faint,
+            border: 'none', fontSize: 14, fontWeight: 600,
+            cursor: selected && !saving ? 'pointer' : 'default',
+            fontFamily: 'inherit', transition: 'all 0.12s',
+            width: '100%', maxWidth: 520,
+          }}
+        >
+          {saving ? 'Setting up…' : 'Continue →'}
+        </button>
+      </div>
     </div>
   );
 }
