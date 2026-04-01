@@ -25,6 +25,7 @@ import {
 import type { ScreenSummary, ScreenType } from '@/types/db';
 import { SCREEN_TYPE_COLORS } from '@/types/db';
 import { supabase } from '@/lib/supabase';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -267,7 +268,7 @@ function AddScreenPanel({
       onAdded();
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = extractErrorMessage(err);
       if (msg.includes('23505')) {
         setError(`Route ${route} is already used by another screen.`);
       } else {

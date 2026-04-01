@@ -9,6 +9,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 import type {
   ImportJob,
   ImportItem,
@@ -222,7 +223,7 @@ export function pollImportJob(
         }
       }
     } catch (err) {
-      onError(err instanceof Error ? err : new Error(String(err)));
+      onError(err instanceof Error ? err : new Error(extractErrorMessage(err)));
       stopped = true;
       return;
     }

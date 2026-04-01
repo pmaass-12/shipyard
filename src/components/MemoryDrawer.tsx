@@ -34,6 +34,7 @@ import {
   subscribeToMemoryFacts,
 } from '@/api/projectMemory';
 import { supabase } from '@/lib/supabase';
+import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
 // ── Compaction types ───────────────────────────────────────────────────────
 
@@ -480,7 +481,7 @@ export default function MemoryDrawer({
       setUncompactedCount(uncompacted?.length ?? 0);
       setCompactedThreads((threads as CompactedThread[]) ?? []);
     } catch (err) {
-      setCompactionError(err instanceof Error ? err.message : String(err));
+      setCompactionError(extractErrorMessage(err));
     } finally {
       setRunningCompaction(false);
     }
