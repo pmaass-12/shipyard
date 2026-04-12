@@ -13,9 +13,7 @@
  */
 
 import { supabaseAdmin } from './_lib/supabaseAdmin.ts';
-import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.24.3';
-
-const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
+import { getAIClient }  from './_lib/getAIClient.ts';
 
 export default async (req: Request) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -109,13 +107,9 @@ Maximum 8 features and 6 bug fixes. Do not include items from "(none)" sections.
   let parsed: { features: string[]; bug_fixes: string[] };
 
   try {
-    const response = await anthropic.messages.create({
-      model:      'claude-sonnet-4-6',
-      max_tokens: 1500,
-      messages:   [{ role: 'user', content: prompt }],
-    });
+    const { callModel } = await getAIClient(project_id);
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const rawText   = await callModel(prompt, 1500);
     const cleanText = rawText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
     parsed = JSON.parse(cleanText);
   } catch (err) {

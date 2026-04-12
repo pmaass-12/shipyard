@@ -570,6 +570,11 @@ export interface ProjectSettings {
   // Setup checklist (014)
   setup_step: number;   // 1–6; persisted "In Progress" step
 
+  // AI Settings (Build 056, extended Build 063)
+  claude_api_key:     string | null;  // Anthropic direct key; nullable (user may use OpenRouter only)
+  ai_model:           string;         // OpenRouter model string, e.g. 'anthropic/claude-sonnet-4'
+  openrouter_api_key: string | null;  // OpenRouter key; nullable (user may use Anthropic direct only)
+
   // Audit
   created_at: string;
   updated_at: string;

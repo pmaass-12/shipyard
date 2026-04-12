@@ -13,9 +13,7 @@
  */
 
 import { supabaseAdmin } from './_lib/supabaseAdmin.ts';
-import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.24.3';
-
-const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
+import { getAIClient }  from './_lib/getAIClient.ts';
 
 export default async (req: Request) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -82,7 +80,7 @@ export default async (req: Request) => {
     return `Screen: ${s.name}\nFeatures:\n${fList || '  (none)'}`;
   }).join('\n\n');
 
-  // ── Call Claude API ────────────────────────────────────────────────────
+  // ── Call AI (model from project_settings) ─────────────────────────────
   let newSteps: Array<{
     step_order: number;
     title: string;
@@ -91,17 +89,11 @@ export default async (req: Request) => {
   }>;
 
   try {
-    const response = await anthropic.messages.create({
-      model:      'claude-sonnet-4-6',
-      max_tokens: 2000,
-      messages: [{
-        role:    'user',
-        content: `Generate a concise onboarding tour for a web app with the following screens and features.\n\n${context}\n\nReturn a JSON array of tour steps, each with: step_order (integer, start at 0, increment by 10), title (short), description (1-2 sentences), target_selector (CSS selector using data-tour attribute, or null for intro/outro).\n\nAlways include an intro step (step_order: 0, target_selector: null) and an outro step (last, target_selector: null). Maximum 8 steps total. Return ONLY the JSON array, no markdown.`,
-      }],
-    });
+    const { callModel } = await getAIClient(project_id);
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : '[]';
-    // Strip potential markdown code fences
+    const prompt = `Generate a concise onboarding tour for a web app with the following screens and features.\n\n${context}\n\nReturn a JSON array of tour steps, each with: step_order (integer, start at 0, increment by 10), title (short), description (1-2 sentences), target_selector (CSS selector using data-tour attribute, or null for intro/outro).\n\nAlways include an intro step (step_order: 0, target_selector: null) and an outro step (last, target_selector: null). Maximum 8 steps total. Return ONLY the JSON array, no markdown.`;
+
+    const rawText   = await callModel(prompt, 2000);
     const cleanText = rawText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
     newSteps = JSON.parse(cleanText);
   } catch (err) {

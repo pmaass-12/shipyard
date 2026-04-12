@@ -56,6 +56,7 @@ import type {
   WaitlistStatus,
 } from '@/types/db';
 import { extractErrorMessage } from '@/lib/extractErrorMessage';
+import { AI_MODELS, DEFAULT_AI_MODEL, isAnthropicModel } from '@/constants/aiModels';
 
 // ── Design tokens (matching dark theme spec) ──────────────────────────────
 
@@ -985,7 +986,10 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
   const [apiKeySaving,    setApiKeySaving]    = useState(false);
   const [apiKeySavedOk,   setApiKeySavedOk]   = useState(false);
   const [apiKeyStatus,    setApiKeyStatus]    = useState<'idle' | 'testing' | 'connected' | 'invalid'>('idle');
-  const [defaultModel,    setDefaultModel]    = useState('claude-sonnet-4-6');
+  const [defaultModel,    setDefaultModel]    = useState(DEFAULT_AI_MODEL);
+  const [openrouterKey,   setOpenrouterKey]   = useState('');
+  const [orKeySaving,     setOrKeySaving]     = useState(false);
+  const [orKeySavedOk,    setOrKeySavedOk]    = useState(false);
   const [modelSaving,     setModelSaving]     = useState(false);
 
   // ── 059: Deploy History state ─────────────────────────────────────────
@@ -1039,13 +1043,14 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       try {
         const { data: aiSettings } = await supabase
           .from('project_settings')
-          .select('claude_api_key, default_model')
+          .select('claude_api_key, ai_model, openrouter_api_key')
           .eq('project_id', projectId)
           .maybeSingle();
         if (aiSettings) {
-          if (aiSettings.claude_api_key)  setApiKey(aiSettings.claude_api_key);
-          if (aiSettings.default_model)   setDefaultModel(aiSettings.default_model);
-          if (aiSettings.claude_api_key)  setApiKeyStatus('connected');
+          if (aiSettings.claude_api_key)     setApiKey(aiSettings.claude_api_key);
+          if (aiSettings.ai_model)           setDefaultModel(aiSettings.ai_model);
+          if (aiSettings.openrouter_api_key) setOpenrouterKey(aiSettings.openrouter_api_key);
+          if (aiSettings.claude_api_key)     setApiKeyStatus('connected');
         }
       } catch { /* non-critical */ }
 
@@ -1305,7 +1310,7 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       await supabase
         .from('project_settings')
         .upsert(
-          { project_id: projectId, default_model: model },
+          { project_id: projectId, ai_model: model },
           { onConflict: 'project_id' },
         );
       showToast('Model saved');
@@ -1313,6 +1318,26 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
       showToast(extractErrorMessage(err, 'Failed to save'), 'error');
     } finally {
       setModelSaving(false);
+    }
+  }
+
+  async function handleSaveOpenRouterKey() {
+    if (orKeySaving) return;
+    setOrKeySaving(true);
+    setOrKeySavedOk(false);
+    try {
+      await supabase
+        .from('project_settings')
+        .upsert(
+          { project_id: projectId, openrouter_api_key: openrouterKey.trim() || null },
+          { onConflict: 'project_id' },
+        );
+      setOrKeySavedOk(true);
+      setTimeout(() => setOrKeySavedOk(false), 2000);
+    } catch (err) {
+      showToast(extractErrorMessage(err, 'Failed to save'), 'error');
+    } finally {
+      setOrKeySaving(false);
     }
   }
 
@@ -1709,25 +1734,55 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
         </div>
       </div>
 
-      {/* ── Build 056: AI Settings ───────────────────────────────────────── */}
+      {/* ── Build 063: AI Settings (extends 056) ─────────────────────────── */}
       <div style={cardStyle} data-testid="ai-settings-section">
-        <div style={cardTitle}>🤖 AI Settings (Build 056)</div>
-        <div style={cardSub}>Configure the AI model powering your features.</div>
+        <div style={cardTitle}>🤖 AI Settings (Build 063)</div>
+        <div style={cardSub}>Configure the AI provider and model powering your features. At least one API key is required.</div>
 
-        {/* Claude API Key */}
-        <div style={{ marginBottom: 24 }}>
+        {/* Provider badge */}
+        {(() => {
+          const hasOr = !!openrouterKey.trim();
+          const hasAk = !!apiKey.trim();
+          if (!hasOr && !hasAk) return null;
+          const viaOR = hasOr; // OpenRouter takes precedence when both set
+          return (
+            <div style={{ marginBottom: 16 }}>
+              <span data-testid="provider-badge" style={{
+                display: 'inline-block', fontSize: 11, fontWeight: 700,
+                padding: '3px 10px', borderRadius: 20,
+                background: viaOR ? '#7c3aed22' : '#1e3a5f22',
+                color: viaOR ? '#7c3aed' : '#1e40af',
+                letterSpacing: '0.02em',
+              }}>
+                {viaOR ? 'via OpenRouter' : 'via Anthropic'}
+              </span>
+            </div>
+          );
+        })()}
+
+        {/* Both-empty warning */}
+        {!apiKey.trim() && !openrouterKey.trim() && (
+          <div data-testid="no-key-warning" style={{
+            fontSize: 12, color: '#b45309', background: '#fef3c7',
+            border: '1px solid #fcd34d', borderRadius: 8,
+            padding: '8px 12px', marginBottom: 16,
+          }}>
+            At least one API key is required to use AI features.
+          </div>
+        )}
+
+        {/* Anthropic API Key */}
+        <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
-            Claude API Key
+            Anthropic API Key
           </div>
           <div style={{ fontSize: 11, color: T.text2, marginBottom: 10 }}>
-            Your API key from{' '}
+            Your key from{' '}
             <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer"
               style={{ color: T.accent, textDecoration: 'none' }}>
               console.anthropic.com
-            </a>. Never shared.
+            </a>. Used when no OpenRouter key is set.
           </div>
-
-          {/* Input row */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
             <div style={{ flex: 1, position: 'relative' }}>
               <input
@@ -1740,13 +1795,11 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
                   width: '100%', height: 44, padding: '0 40px 0 12px',
                   background: T.surface3, border: `1.5px solid ${T.border2}`,
                   borderRadius: 8, color: T.text, fontSize: 13,
-                  outline: 'none', boxSizing: 'border-box',
-                  fontFamily: 'monospace',
+                  outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace',
                 }}
-                onFocus={(e)  => { e.currentTarget.style.borderColor = T.accent; }}
-                onBlur={(e)   => { e.currentTarget.style.borderColor = T.border2; }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = T.accent; }}
+                onBlur={(e)  => { e.currentTarget.style.borderColor = T.border2; }}
               />
-              {/* Show/hide toggle */}
               <button
                 data-testid="api-key-visibility-toggle"
                 onClick={() => setApiKeyVisible(v => !v)}
@@ -1760,8 +1813,6 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
                 {apiKeyVisible ? '🙈' : '👁'}
               </button>
             </div>
-
-            {/* Save button */}
             <button
               data-testid="save-api-key-btn"
               onClick={handleSaveApiKey}
@@ -1771,15 +1822,12 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
                 background: apiKeySavedOk ? T.green : T.accent,
                 color: '#fff', fontSize: 13, fontWeight: 600,
                 cursor: apiKeySaving ? 'not-allowed' : 'pointer',
-                opacity: apiKeySaving ? 0.7 : 1, flexShrink: 0,
-                transition: 'background 0.2s',
+                opacity: apiKeySaving ? 0.7 : 1, flexShrink: 0, transition: 'background 0.2s',
               }}
             >
               {apiKeySavedOk ? 'Saved ✓' : apiKeySaving ? '…' : 'Save'}
             </button>
           </div>
-
-          {/* Test key row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
             <button
               data-testid="test-api-key-btn"
@@ -1793,7 +1841,6 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
             >
               {apiKeyStatus === 'testing' ? 'Testing…' : 'Test key →'}
             </button>
-
             {apiKeyStatus === 'connected' && (
               <span data-testid="api-key-status-connected"
                 style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: T.green }}>
@@ -1811,50 +1858,100 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
           </div>
         </div>
 
-        {/* Default Model */}
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 12 }}>
-            Default Model
+        {/* OpenRouter API Key */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+            OpenRouter API Key
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-            {([
-              { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5',   tagline: 'Fastest & most affordable', cost: '~$0.01 / feature' },
-              { id: 'claude-sonnet-4-6',         name: 'Sonnet 4.6',  tagline: 'Best balance of speed & quality', cost: '~$0.05 / feature', recommended: true as const },
-              { id: 'claude-opus-4-6',           name: 'Opus 4.6',    tagline: 'Most capable', cost: '~$0.20 / feature' },
-            ] as Array<{ id: string; name: string; tagline: string; cost: string; recommended?: true }>).map((m) => {
-              const selected = defaultModel === m.id;
+          <div style={{ fontSize: 11, color: T.text2, marginBottom: 10 }}>
+            Your key from{' '}
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer"
+              style={{ color: T.accent, textDecoration: 'none' }}>
+              openrouter.ai/keys
+            </a>. When set, takes precedence — enables all models below.
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+            <input
+              data-testid="openrouter-api-key-input"
+              type="password"
+              value={openrouterKey}
+              onChange={(e) => setOpenrouterKey(e.target.value)}
+              placeholder="sk-or-..."
+              style={{
+                flex: 1, height: 44, padding: '0 12px',
+                background: T.surface3, border: `1.5px solid ${T.border2}`,
+                borderRadius: 8, color: T.text, fontSize: 13,
+                outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = T.accent; }}
+              onBlur={(e)  => { e.currentTarget.style.borderColor = T.border2; }}
+            />
+            <button
+              data-testid="save-openrouter-key-btn"
+              onClick={handleSaveOpenRouterKey}
+              disabled={orKeySaving}
+              style={{
+                width: 72, height: 44, borderRadius: 8, border: 'none',
+                background: orKeySavedOk ? T.green : T.accent,
+                color: '#fff', fontSize: 13, fontWeight: 600,
+                cursor: orKeySaving ? 'not-allowed' : 'pointer',
+                opacity: orKeySaving ? 0.7 : 1, flexShrink: 0, transition: 'background 0.2s',
+              }}
+            >
+              {orKeySavedOk ? 'Saved ✓' : orKeySaving ? '…' : 'Save'}
+            </button>
+          </div>
+        </div>
+
+        {/* Model Selector */}
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 8 }}>
+            AI Model
+          </div>
+          <select
+            data-testid="ai-model-select"
+            value={defaultModel}
+            onChange={(e) => handleSaveModel(e.target.value)}
+            disabled={modelSaving}
+            style={{
+              width: '100%', height: 44, padding: '0 12px',
+              background: T.surface3, border: `1.5px solid ${T.border2}`,
+              borderRadius: 8, color: T.text, fontSize: 13,
+              outline: 'none', cursor: 'pointer',
+            }}
+          >
+            {/* Group by provider */}
+            {(['anthropic', 'openai', 'google', 'mistralai', 'meta-llama'] as const).map(provider => {
+              const group = AI_MODELS.filter(m => m.provider === provider);
+              if (group.length === 0) return null;
+              const labels: Record<string, string> = {
+                anthropic:  'Anthropic',
+                openai:     'OpenAI',
+                google:     'Google',
+                mistralai:  'Mistral',
+                'meta-llama': 'Meta / Llama',
+              };
               return (
-                <div
-                  key={m.id}
-                  data-testid={`model-card-${m.id}`}
-                  onClick={() => !modelSaving && handleSaveModel(m.id)}
-                  style={{
-                    position: 'relative',
-                    padding: '14px 16px',
-                    borderRadius: 10, cursor: 'pointer',
-                    border: selected ? `2px solid #4338ca` : `1.5px solid ${T.border2}`,
-                    background: selected ? '#1e1b4b' : T.surface3,
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {m.recommended && (
-                    <span style={{
-                      position: 'absolute', top: 8, right: 8,
-                      background: T.accent, color: '#fff',
-                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                    }}>
-                      Recommended
-                    </span>
-                  )}
-                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4 }}>
-                    {m.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: T.text2, marginBottom: 2 }}>{m.tagline}</div>
-                  <div style={{ fontSize: 11, color: T.text3 }}>{m.cost}</div>
-                </div>
+                <optgroup key={provider} label={labels[provider]}>
+                  {group.map(m => (
+                    <option key={m.model} value={m.model}>
+                      {m.displayName}{m.notes ? ` — ${m.notes}` : ''}
+                    </option>
+                  ))}
+                </optgroup>
               );
             })}
-          </div>
+          </select>
+
+          {/* Non-Claude warning */}
+          {!isAnthropicModel(defaultModel) && (
+            <div data-testid="non-claude-warning" style={{
+              marginTop: 10, fontSize: 12, color: '#92400e', background: '#fef3c7',
+              border: '1px solid #fcd34d', borderRadius: 8, padding: '8px 12px',
+            }}>
+              Shipyard's AI team is optimized for Claude. Other models may produce lower-quality designs and code — results will vary.
+            </div>
+          )}
         </div>
       </div>
 
