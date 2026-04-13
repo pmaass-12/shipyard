@@ -58,7 +58,7 @@ const PATHS = [
     type:     'both',
     icon:     '🚀',
     title:    'Both — website to grow, app to deliver',
-    desc:     'Start with the Distribute path to get your business running and finding customers, then add a full web app as you scale. One project, both pipelines.',
+    desc:     "Build your web app first, then unlock the Distribute pipeline to grow your business once you've shipped. One project, both pipelines.",
     badge:    'Distribute + Build',
     accent:   T.amber,
     accentBg: T.amberLight,
@@ -85,12 +85,13 @@ export default function ProjectTypeChoiceScreen() {
         .eq('id', projectId!);
       if (err) throw err;
 
-      if (selected === 'app') {
-        // Existing Build wizard — skip this screen, go directly
-        navigate(`/projects/${projectId}/setup/build-wizard`);
-      } else {
-        // Distribute wizard
+      if (selected === 'website') {
+        // Standalone Distribute path — builder has an existing site, enter Distribute wizard directly
         navigate(`/projects/${projectId}/distribute/wizard`);
+      } else {
+        // 'app' or 'both' — Build wizard first.
+        // 'both' projects unlock the Distribute section in the Project Hub after first deploy.
+        navigate(`/projects/${projectId}/setup/build-wizard`);
       }
     } catch (err) {
       // Supabase PostgrestError is a plain object, not an Error instance — extract .message from both

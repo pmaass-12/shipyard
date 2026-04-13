@@ -46,11 +46,12 @@ const DEFAULT_MODEL   = 'anthropic/claude-sonnet-4';
  * @param projectId  Supabase project UUID
  * @returns { model, callModel }
  *   model      — the resolved OpenRouter model string
- *   callModel  — async fn(prompt, maxTokens) → string (the AI text response)
+ *   callModel  — async fn(prompt, maxTokens, system?) → string (the AI text response)
+ *                system is prepended as a system message when provided
  */
 export async function getAIClient(projectId: string): Promise<{
   model:     string;
-  callModel: (prompt: string, maxTokens: number) => Promise<string>;
+  callModel: (prompt: string, maxTokens: number, system?: string) => Promise<string>;
 }> {
   // ── Read project_settings ────────────────────────────────────────────────
   const { data: settings, error } = await supabaseAdmin
@@ -80,10 +81,11 @@ export async function getAIClient(projectId: string): Promise<{
       ? new Anthropic({ apiKey: orKey,    baseURL: `${OPENROUTER_BASE}` })
       : new Anthropic({ apiKey: claudeKey! });
 
-    const callModel = async (prompt: string, maxTokens: number): Promise<string> => {
+    const callModel = async (prompt: string, maxTokens: number, system?: string): Promise<string> => {
       const response = await client.messages.create({
         model,
         max_tokens: maxTokens,
+        ...(system ? { system } : {}),
         messages:   [{ role: 'user', content: prompt }],
       });
       const block = response.content[0];
@@ -100,7 +102,10 @@ export async function getAIClient(projectId: string): Promise<{
     );
   }
 
-  const callModel = async (prompt: string, maxTokens: number): Promise<string> => {
+  const callModel = async (prompt: string, maxTokens: number, system?: string): Promise<string> => {
+    const messages = system
+      ? [{ role: 'system', content: system }, { role: 'user', content: prompt }]
+      : [{ role: 'user', content: prompt }];
     const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
       method:  'POST',
       headers: {
@@ -110,7 +115,7 @@ export async function getAIClient(projectId: string): Promise<{
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
-        messages:   [{ role: 'user', content: prompt }],
+        messages,
       }),
     });
 

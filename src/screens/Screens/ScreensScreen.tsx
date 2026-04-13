@@ -19,7 +19,6 @@ import {
   createScreen,
   updateScreen,
   deleteScreen,
-  addGeneratedScreens,
   getProgressDots,
 } from '@/api/screens';
 import type { ScreenSummary, ScreenType } from '@/types/db';
@@ -54,18 +53,63 @@ function CountChip({ count, label }: { count: number; label: string }) {
   );
 }
 
-// ── Empty state ────────────────────────────────────────────────────────────
+// ── Suggestion screen type ──────────────────────────────────────────────────
+// Richer than DB ScreenType — used for display and mapped on save.
+type SuggestionScreenType = 'dashboard' | 'form' | 'list' | 'detail' | 'auth' | 'onboarding' | 'settings';
 
-function EmptyState({ projectId, onScreensAdded }: {
-  projectId:      string;
-  onScreensAdded: () => void;
+/** Map generate-screen-suggestions screen_type → DB ScreenType */
+function toDbScreenType(t: SuggestionScreenType): ScreenType {
+  if (t === 'dashboard') return 'dashboard';
+  if (t === 'auth')      return 'auth';
+  return 'page'; // form, list, detail, onboarding, settings → page
+}
+
+/** Derive a URL-safe route from a screen name */
+function nameToRoute(name: string): string {
+  return '/' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+/** Badge for suggestion-type display (different palette from DB ScreenType) */
+const SUGGESTION_TYPE_COLORS: Record<SuggestionScreenType, string> = {
+  dashboard:  '#30d158',
+  form:       '#0a84ff',
+  list:       '#636366',
+  detail:     '#8e8e93',
+  auth:       '#bf5af2',
+  onboarding: '#ff9f0a',
+  settings:   '#636366',
+};
+
+function SuggestionTypeBadge({ type }: { type: SuggestionScreenType }) {
+  const color = SUGGESTION_TYPE_COLORS[type] ?? '#636366';
+  return (
+    <span style={{
+      padding: '2px 7px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+      backgroundColor: color + '22', color, textTransform: 'capitalize', flexShrink: 0,
+    }}>
+      {type}
+    </span>
+  );
+}
+
+// ── Empty state (first-run Reeve card) — Build 055 Amendment 1 ───────────────
+
+function EmptyState({ projectId, projectDescription, onScreensAdded }: {
+  projectId:          string;
+  projectDescription: string;   // pre-filled from project.description
+  onScreensAdded:     () => void;
 }) {
-  const [description, setDescription]     = useState('');
-  const [generating,  setGenerating]      = useState(false);
-  const [suggestions, setSuggestions]     = useState<Array<{ name: string; route: string; type: ScreenType; checked: boolean }>>([]);
-  const [adding,      setAdding]          = useState(false);
-  const [showManual,  setShowManual]      = useState(false);
-  const [error, setError]                 = useState('');
+  const [description, setDescription] = useState(projectDescription);
+  const [generating,  setGenerating]  = useState(false);
+  const [suggestions, setSuggestions] = useState<Array<{
+    name:        string;
+    purpose:     string;
+    screen_type: SuggestionScreenType;
+    checked:     boolean;
+  }>>([]);
+  const [adding,     setAdding]     = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [error,      setError]      = useState('');
 
   async function handleGenerate() {
     if (!description.trim()) return;
@@ -73,7 +117,7 @@ function EmptyState({ projectId, onScreensAdded }: {
     setError('');
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/generate-screens', {
+      const res = await fetch('/api/generate-screen-suggestions', {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
@@ -82,10 +126,17 @@ function EmptyState({ projectId, onScreensAdded }: {
         body: JSON.stringify({ project_id: projectId, description }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const { screens } = await res.json() as { screens: Array<{ name: string; route: string; type: ScreenType }> };
-      setSuggestions(screens.map((s) => ({ ...s, checked: true })));
+      const { screens } = await res.json() as {
+        screens: Array<{ name: string; purpose: string; screen_type: string }>;
+      };
+      setSuggestions(screens.map((s) => ({
+        name:        s.name,
+        purpose:     s.purpose,
+        screen_type: s.screen_type as SuggestionScreenType,
+        checked:     true,
+      })));
     } catch (err) {
-      setError(String(err));
+      setError(extractErrorMessage(err, 'Generation failed. Try again.'));
     } finally {
       setGenerating(false);
     }
@@ -96,48 +147,70 @@ function EmptyState({ projectId, onScreensAdded }: {
     if (!selected.length) return;
     setAdding(true);
     try {
-      await addGeneratedScreens(projectId, selected.map(({ name, route, type }) => ({ name, route, type })));
+      // Sequential — order matters for sitemap. Not parallel.
+      for (const s of selected) {
+        await createScreen(projectId, {
+          name:  s.name.trim(),
+          type:  toDbScreenType(s.screen_type),
+          route: nameToRoute(s.name),
+        });
+      }
       onScreensAdded();
     } catch (err) {
-      setError(String(err));
+      setError(extractErrorMessage(err, 'Failed to add screens. Try again.'));
     } finally {
       setAdding(false);
     }
   }
 
+  // ── Suggestion review view ────────────────────────────────────────────────
   if (suggestions.length > 0) {
     return (
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 20px' }}>
-        <h2 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 700, color: 'var(--color-text)' }}>
-          Review suggested screens
-        </h2>
-        <p style={{ margin: '0 0 20px', fontSize: 14, color: 'var(--color-text-muted)' }}>
-          Uncheck any you don't want, edit names inline, then add.
-        </p>
+      <div style={{ maxWidth: 580, margin: '0 auto', padding: '40px 20px' }}>
+        {/* Reeve header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg, #4338ca 0%, #7c3aed 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 16,
+          }}>🤖</div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)' }}>Reeve</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Here's a starting structure. Uncheck or rename anything you don't need.</div>
+          </div>
+        </div>
 
-        <div data-testid="screen-suggestions" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+        <div data-testid="screen-suggestions" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
           {suggestions.map((s, i) => (
             <div key={i} style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-              border: '1px solid var(--color-border)', borderRadius: 8,
-              backgroundColor: 'var(--color-surface)',
+              display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px',
+              border: `1px solid ${s.checked ? 'var(--color-accent)' : 'var(--color-border)'}`,
+              borderRadius: 8, backgroundColor: 'var(--color-surface)',
+              opacity: s.checked ? 1 : 0.5, transition: 'all 0.12s',
             }}>
               <input
                 type="checkbox"
                 data-testid={`suggestion-checkbox-${i}`}
                 checked={s.checked}
                 onChange={() => setSuggestions((prev) => prev.map((p, j) => j === i ? { ...p, checked: !p.checked } : p))}
+                style={{ marginTop: 3, flexShrink: 0 }}
               />
-              <input
-                value={s.name}
-                onChange={(e) => setSuggestions((prev) => prev.map((p, j) => j === i ? { ...p, name: e.target.value } : p))}
-                style={{
-                  flex: 1, border: 'none', background: 'transparent', fontSize: 14,
-                  color: 'var(--color-text)', fontWeight: 600, outline: 'none',
-                }}
-              />
-              <code style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{s.route}</code>
-              <TypeBadge type={s.type} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                  <input
+                    value={s.name}
+                    onChange={(e) => setSuggestions((prev) => prev.map((p, j) => j === i ? { ...p, name: e.target.value } : p))}
+                    style={{
+                      border: 'none', background: 'transparent', fontSize: 14,
+                      color: 'var(--color-text)', fontWeight: 700, outline: 'none',
+                      minWidth: 0,
+                    }}
+                  />
+                  <SuggestionTypeBadge type={s.screen_type} />
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.4 }}>{s.purpose}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -153,10 +226,10 @@ function EmptyState({ projectId, onScreensAdded }: {
               padding: '10px 20px', borderRadius: 8, border: 'none',
               backgroundColor: 'var(--color-accent)', color: '#fff',
               fontWeight: 700, fontSize: 14, cursor: 'pointer',
-              opacity: adding ? 0.6 : 1,
+              opacity: (adding || !suggestions.some((s) => s.checked)) ? 0.6 : 1,
             }}
           >
-            {adding ? 'Adding…' : `Add ${suggestions.filter((s) => s.checked).length} selected screens`}
+            {adding ? 'Adding…' : `Add ${suggestions.filter((s) => s.checked).length} screen${suggestions.filter((s) => s.checked).length !== 1 ? 's' : ''} →`}
           </button>
           <button
             onClick={() => setSuggestions([])}
@@ -173,55 +246,72 @@ function EmptyState({ projectId, onScreensAdded }: {
     );
   }
 
+  // ── Reeve card — initial prompt view ─────────────────────────────────────
   return (
-    <div style={{ maxWidth: 520, margin: '80px auto', padding: '0 20px', textAlign: 'center' }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>🖥</div>
-      <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: 'var(--color-text)' }}>
-        Start by describing your app's screens
-      </h2>
-      <p style={{ margin: '0 0 24px', fontSize: 14, color: 'var(--color-text-muted)' }}>
-        Claude will suggest a screen architecture you can review and edit before adding.
-      </p>
+    <div style={{ maxWidth: 540, margin: '60px auto', padding: '0 20px' }}>
+      <div style={{
+        border: '1px solid var(--color-border)', borderRadius: 14,
+        backgroundColor: 'var(--color-surface)',
+        padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      }}>
+        {/* Reeve avatar + header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg, #4338ca 0%, #7c3aed 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18,
+          }}>🤖</div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 2 }}>Reeve</div>
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+              Let's map out your screens. Tell me what your app does and I'll suggest a starting structure.
+            </p>
+          </div>
+        </div>
 
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Describe your app and its main screens — e.g. 'A task management app with dashboard, task list, settings, and a project view'"
-        rows={4}
-        style={{
-          width: '100%', padding: '12px 14px', borderRadius: 8, fontSize: 14,
-          border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)',
-          color: 'var(--color-text)', resize: 'vertical', boxSizing: 'border-box',
-          marginBottom: 12,
-        }}
-      />
+        {/* Description input */}
+        <textarea
+          data-testid="screen-description-input"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Describe your app in a sentence or two…"
+          rows={3}
+          style={{
+            width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 14,
+            border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)',
+            color: 'var(--color-text)', resize: 'vertical', boxSizing: 'border-box',
+            marginBottom: 10, fontFamily: 'inherit',
+          }}
+        />
 
-      {error && <p style={{ color: '#ff3b30', fontSize: 13, marginBottom: 10 }}>{error}</p>}
+        {error && <p style={{ color: '#ff3b30', fontSize: 13, marginBottom: 10 }}>{error}</p>}
 
-      <button
-        data-testid="generate-screens-btn"
-        onClick={handleGenerate}
-        disabled={generating || !description.trim()}
-        style={{
-          width: '100%', padding: '12px', borderRadius: 8, border: 'none',
-          backgroundColor: 'var(--color-accent)', color: '#fff',
-          fontWeight: 700, fontSize: 15, cursor: 'pointer',
-          opacity: (generating || !description.trim()) ? 0.6 : 1,
-          marginBottom: 12,
-        }}
-      >
-        {generating ? 'Generating…' : 'Generate screens →'}
-      </button>
-
-      <button
-        onClick={() => setShowManual(true)}
-        style={{
-          background: 'none', border: 'none', color: 'var(--color-accent)',
-          cursor: 'pointer', fontSize: 14, textDecoration: 'underline',
-        }}
-      >
-        Or add manually
-      </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <button
+            onClick={() => setShowManual(true)}
+            style={{
+              background: 'none', border: 'none', color: 'var(--color-accent)',
+              cursor: 'pointer', fontSize: 13, padding: 0, textDecoration: 'underline',
+            }}
+          >
+            Add screens manually →
+          </button>
+          <button
+            data-testid="generate-screens-btn"
+            onClick={handleGenerate}
+            disabled={generating || !description.trim()}
+            style={{
+              padding: '9px 20px', borderRadius: 8, border: 'none',
+              backgroundColor: 'var(--color-accent)', color: '#fff',
+              fontWeight: 700, fontSize: 14, cursor: 'pointer',
+              opacity: (generating || !description.trim()) ? 0.6 : 1,
+            }}
+          >
+            {generating ? 'Thinking…' : 'Send →'}
+          </button>
+        </div>
+      </div>
 
       {showManual && (
         <AddScreenPanel
@@ -701,15 +791,29 @@ function ScreenDetail({ screenId, projectId }: { screenId: string; projectId: st
 export default function ScreensScreen() {
   const { id: projectId, screenId } = useParams<{ id: string; screenId?: string }>();
 
-  const [screens,        setScreens]       = useState<ScreenSummary[]>([]);
-  const [loading,        setLoading]       = useState(true);
-  const [isEmpty,        setIsEmpty]       = useState(false);
-  const [showAdd,        setShowAdd]       = useState(false);
-  const [editingScreen,  setEditingScreen] = useState<ScreenSummary | null>(null);
-  const [deletingScreen, setDeletingScreen] = useState<ScreenSummary | null>(null);
-  const [deleting,       setDeleting]      = useState(false);
-  const [searchQuery,    setSearchQuery]   = useState('');
-  const [typeFilter,     setTypeFilter]    = useState<ScreenType | ''>('');
+  const [screens,             setScreens]            = useState<ScreenSummary[]>([]);
+  const [loading,             setLoading]            = useState(true);
+  const [isEmpty,             setIsEmpty]            = useState(false);
+  const [projectDescription,  setProjectDescription] = useState('');
+  const [showAdd,             setShowAdd]            = useState(false);
+  const [editingScreen,       setEditingScreen]      = useState<ScreenSummary | null>(null);
+  const [deletingScreen,      setDeletingScreen]     = useState<ScreenSummary | null>(null);
+  const [deleting,            setDeleting]           = useState(false);
+  const [searchQuery,         setSearchQuery]        = useState('');
+  const [typeFilter,          setTypeFilter]         = useState<ScreenType | ''>('');
+
+  // Fetch project description once for EmptyState pre-fill
+  useEffect(() => {
+    if (!projectId) return;
+    supabase
+      .from('projects')
+      .select('description')
+      .eq('id', projectId)
+      .single()
+      .then(({ data }) => {
+        if (data?.description) setProjectDescription(data.description);
+      });
+  }, [projectId]);
 
   const loadScreens = useCallback(async () => {
     if (!projectId) return;
@@ -741,11 +845,12 @@ export default function ScreensScreen() {
     return <ScreenDetail screenId={screenId} projectId={projectId!} />;
   }
 
-  // Empty state
+  // Empty state — search/filter hidden (no point searching an empty list)
   if (!loading && isEmpty) {
     return (
       <EmptyState
         projectId={projectId!}
+        projectDescription={projectDescription}
         onScreensAdded={loadScreens}
       />
     );

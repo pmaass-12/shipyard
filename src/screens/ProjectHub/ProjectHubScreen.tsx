@@ -242,6 +242,8 @@ interface NavCardDef {
   badgeCount?: (stats: ProjectHubStats) => number | null;
   isLocked?:   (project: Project) => boolean;
   lockReason?: string;
+  /** If provided, card is only rendered when this returns true. */
+  isVisible?:  (project: Project) => boolean;
 }
 
 // Build 055: canonical ordering — core loop first, shipping second, settings collapsed
@@ -289,6 +291,20 @@ const NAV_CARDS: NavCardDef[] = [
   {
     id: 'gallery', testId: 'nav-gallery', emoji: '🖼️', title: 'Design Gallery', description: 'Screen mockups and interactive flow map.',
     href: (id) => `/projects/${id}/gallery`,
+  },
+  // Build 047/055: Distribute path — visible only for website and both project types
+  {
+    id:          'distribute',
+    testId:      'nav-distribute',
+    emoji:       '📣',
+    title:       'Distribute',
+    description: 'Website, leads, and outreach campaigns.',
+    href:        (id) => `/projects/${id}/distribute`,
+    // Locked for 'both' projects until at least one feature has been pushed to production.
+    // 'website' (standalone Distribute) projects are never locked — they go straight to Distribute.
+    isLocked:    (p) => p.project_type === 'both' && !p.pushed_to_production_at,
+    lockReason:  'Complete your website design first',
+    isVisible:   (p) => p.project_type === 'website' || p.project_type === 'both',
   },
 ];
 
@@ -1141,7 +1157,7 @@ export default function ProjectHubScreen() {
         gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
         gap: 12, marginBottom: 16,
       }}>
-        {NAV_CARDS.map((card) => (
+        {NAV_CARDS.filter((card) => !card.isVisible || card.isVisible(project)).map((card) => (
           <NavCard key={card.id} card={card} project={project} stats={stats} />
         ))}
       </div>
