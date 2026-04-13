@@ -38,6 +38,42 @@ import {
 import type { AudienceType, MonetizationType } from '@/types/db';
 import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
+// ── Draft persistence (Build 064) ─────────────────────────────────────────
+
+interface SetupWizardDraft {
+  s1?: { name: string; description: string; color: string };
+  s2?: { audienceType: AudienceType };
+  s3?: { monetizationType: MonetizationType };
+}
+
+function getSetupDraftKey(projectId: string) {
+  return `shipyard_setup_wizard_draft_${projectId}`;
+}
+
+function readSetupDraft(projectId: string): SetupWizardDraft {
+  try {
+    const raw = localStorage.getItem(getSetupDraftKey(projectId));
+    return raw ? (JSON.parse(raw) as SetupWizardDraft) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSetupDraft(projectId: string, patch: Partial<SetupWizardDraft>): void {
+  try {
+    const current = readSetupDraft(projectId);
+    localStorage.setItem(getSetupDraftKey(projectId), JSON.stringify({ ...current, ...patch }));
+  } catch {
+    // Storage quota exceeded — ignore silently
+  }
+}
+
+function clearSetupDraft(projectId: string): void {
+  try {
+    localStorage.removeItem(getSetupDraftKey(projectId));
+  } catch {}
+}
+
 // ── Design Tokens ─────────────────────────────────────────────────────────
 
 const T = {
@@ -68,12 +104,16 @@ interface Screen1Data {
   color: string;
 }
 
-function Screen1({ projectId: _projectId, onNext: _onNext }: { projectId: string; onNext: () => void }) {
-  const [data, setData] = useState<Screen1Data>({
-    name: '',
-    description: '',
-    color: COLOR_SWATCHES[0],
+function Screen1({ projectId, onNext: _onNext }: { projectId: string; onNext: () => void }) {
+  const [data, setData] = useState<Screen1Data>(() => {
+    const draft = readSetupDraft(projectId);
+    return draft.s1 ?? { name: '', description: '', color: COLOR_SWATCHES[0] };
   });
+
+  useEffect(() => {
+    writeSetupDraft(projectId, { s1: data });
+  }, [data, projectId]);
+
   return (
     <div data-testid="wizard-screen-1" style={screenStyle}>
       <div style={contentStyle}>
@@ -203,9 +243,16 @@ function Screen2({
   projectId: string;
   onNext: (audienceType: AudienceType) => void;
 }) {
-  const [selected, setSelected] = useState<AudienceType>('b2c');
+  const [selected, setSelected] = useState<AudienceType>(() => {
+    const draft = readSetupDraft(projectId);
+    return draft.s2?.audienceType ?? 'b2c';
+  });
   const [error, setError] = useState('');
   const { showToast } = useToast();
+
+  useEffect(() => {
+    writeSetupDraft(projectId, { s2: { audienceType: selected } });
+  }, [selected, projectId]);
 
   async function handleNext() {
     setError('');
@@ -336,13 +383,21 @@ const MONETIZATION_CARDS: MonetizationCard[] = [
 ];
 
 function Screen3({
-  projectId: _projectId,
+  projectId,
   onNext: _onNext,
 }: {
   projectId: string;
   onNext: () => void;
 }) {
-  const [selected, setSelected] = useState<MonetizationType>('free');
+  const [selected, setSelected] = useState<MonetizationType>(() => {
+    const draft = readSetupDraft(projectId);
+    return draft.s3?.monetizationType ?? 'free';
+  });
+
+  useEffect(() => {
+    writeSetupDraft(projectId, { s3: { monetizationType: selected } });
+  }, [selected, projectId]);
+
   return (
     <div data-testid="wizard-screen-3" style={screenStyle}>
       <div style={contentStyle}>
@@ -547,17 +602,12 @@ function Screen5({
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  async function runWizardDefaults() {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token ?? '';
-    await triggerWizardDefaults(projectId, token);
-  }
-
   async function handleCompletion() {
     setTriggering(true);
     setError('');
     try {
-      await runWizardDefaults();
+      await triggerWizardDefaults(projectId);   // non-fatal: warns but never throws
+      clearSetupDraft(projectId);
       showToast('Project setup complete!');
       navigate(`/projects/${projectId}`);
     } catch (err) {
@@ -572,7 +622,8 @@ function Screen5({
     setTriggering(true);
     setError('');
     try {
-      await runWizardDefaults();
+      await triggerWizardDefaults(projectId);   // non-fatal: warns but never throws
+      clearSetupDraft(projectId);
       showToast('Project setup complete!');
       navigate(`/projects/${projectId}/setup/infra`); // routing-fix-031: /deploy has no route; infra wizard lives at /setup/infra
     } catch (err) {

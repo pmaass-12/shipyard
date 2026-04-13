@@ -16,10 +16,46 @@
  * fires `run-research` Edge Function, navigates to /projects/:id/distribute
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { extractErrorMessage } from '@/lib/extractErrorMessage';
+
+// ── Draft persistence (Build 064) ─────────────────────────────────────────
+
+interface DistributeDraft {
+  s1?: S1Data;
+  s2?: S2Data;
+  s3?: S3Data;
+  s4?: S4Data;
+}
+
+function getDistributeDraftKey(projectId: string) {
+  return `shipyard_distribute_wizard_draft_${projectId}`;
+}
+
+function readDistributeDraft(projectId: string): DistributeDraft {
+  try {
+    const raw = localStorage.getItem(getDistributeDraftKey(projectId));
+    return raw ? (JSON.parse(raw) as DistributeDraft) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDistributeDraft(projectId: string, data: DistributeDraft): void {
+  try {
+    localStorage.setItem(getDistributeDraftKey(projectId), JSON.stringify(data));
+  } catch {
+    // Storage quota exceeded — ignore silently
+  }
+}
+
+function clearDistributeDraft(projectId: string): void {
+  try {
+    localStorage.removeItem(getDistributeDraftKey(projectId));
+  } catch {}
+}
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 
@@ -819,10 +855,29 @@ export default function DistributeWizardScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const [s1, setS1] = useState<S1Data>({ businessName: '', whatYouDo: '', problemSolved: '', customerType: '', customerDetail: '' });
-  const [s2, setS2] = useState<S2Data>({ competitor1: '', competitor2: '', competitor3: '', geography: '', priceRange: '' });
-  const [s3, setS3] = useState<S3Data>({ pages: [...DEFAULT_PAGES], tone: '', hasBrand: false, hasDomain: false, domain: '' });
-  const [s4, setS4] = useState<S4Data>({ channels: ['outreach'], outreachTarget: '', outreachGoal: 'book_call', outreachVolume: '25' });
+  const pid = projectId ?? '';
+
+  const [s1, setS1] = useState<S1Data>(() => {
+    const d = readDistributeDraft(pid);
+    return d.s1 ?? { businessName: '', whatYouDo: '', problemSolved: '', customerType: '', customerDetail: '' };
+  });
+  const [s2, setS2] = useState<S2Data>(() => {
+    const d = readDistributeDraft(pid);
+    return d.s2 ?? { competitor1: '', competitor2: '', competitor3: '', geography: '', priceRange: '' };
+  });
+  const [s3, setS3] = useState<S3Data>(() => {
+    const d = readDistributeDraft(pid);
+    return d.s3 ?? { pages: [...DEFAULT_PAGES], tone: '', hasBrand: false, hasDomain: false, domain: '' };
+  });
+  const [s4, setS4] = useState<S4Data>(() => {
+    const d = readDistributeDraft(pid);
+    return d.s4 ?? { channels: ['outreach'], outreachTarget: '', outreachGoal: 'book_call', outreachVolume: '25' };
+  });
+
+  // Persist draft on every field change (Build 064)
+  useEffect(() => {
+    writeDistributeDraft(pid, { s1, s2, s3, s4 });
+  }, [s1, s2, s3, s4, pid]);
 
   function isScreen1Valid() { return !!s1.businessName.trim() && !!s1.whatYouDo.trim() && !!s1.customerType; }
   function isScreen2Valid() { return !!s2.geography && !!s2.priceRange; }
@@ -891,6 +946,8 @@ export default function DistributeWizardScreen() {
           body: JSON.stringify({ project_id: projectId }),
         }).catch(() => { /* non-blocking */ });
 
+        // Clear draft on successful completion (Build 064)
+        clearDistributeDraft(pid);
         setScreen(5);
         window.scrollTo(0, 0);
       } catch (err) {

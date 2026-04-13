@@ -101,24 +101,15 @@ export async function saveMonetizationType(
  * Trigger wizard defaults edge function.
  * Called on Screen 5 "Let's start building" CTA.
  *
- * POST /functions/v1/generate-wizard-defaults with { project_id }
- * Generates default screens, features, and other project scaffolding.
+ * Uses supabase.functions.invoke() so auth is handled automatically.
+ * Non-fatal: logs a warning on failure but does not throw, so the user
+ * always advances to the hub even if scaffolding generation fails.
  */
-export async function triggerWizardDefaults(
-  projectId: string,
-  sessionToken: string,
-): Promise<void> {
-  const response = await fetch('/functions/v1/generate-wizard-defaults', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${sessionToken}`,
-    },
-    body: JSON.stringify({ project_id: projectId }),
+export async function triggerWizardDefaults(projectId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('generate-wizard-defaults', {
+    body: { project_id: projectId },
   });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Wizard defaults failed: ${error}`);
+  if (error) {
+    console.warn('Wizard defaults non-fatal error:', error);
   }
 }
