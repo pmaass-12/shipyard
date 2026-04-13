@@ -2,7 +2,6 @@
  * AdminScreen — Build 003
  *
  * Route: /admin
- * Gated by VITE_SHIPYARD_ADMIN === 'true' at build time.
  * Requires owner or admin role (enforced by edge functions on all writes).
  *
  * Tabs:
@@ -76,10 +75,6 @@ const T = {
   orange:   '#ff9f0a',
   purple:   '#6d28d9',
 };
-
-// ── Is admin enabled? ─────────────────────────────────────────────────────
-
-const ADMIN_ENABLED = import.meta.env.VITE_SHIPYARD_ADMIN === 'true';
 
 // ── Relative time helper ──────────────────────────────────────────────────
 
@@ -2109,18 +2104,6 @@ function PlatformFeaturesTab({ projectId }: PlatformFeatureTabProps) {
 // ── Main AdminScreen ──────────────────────────────────────────────────────
 
 export default function AdminScreen() {
-  if (!ADMIN_ENABLED) {
-    return (
-      <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.text, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
-          <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Admin Console</div>
-          <div style={{ color: T.text2, fontSize: 14 }}>Not available in this environment.</div>
-        </div>
-      </div>
-    );
-  }
-
   const [tab,          setTab]          = useState<'users' | 'audit' | 'platform'>('users');
   // Build 006–009: the Platform Features tab requires a project_id context.
   // In the Admin Console, we default to the first project owned by the current user.

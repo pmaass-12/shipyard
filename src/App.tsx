@@ -164,7 +164,7 @@ export default function App() {
                 Advanced mode preserves Build 038 UI behind "Advanced setup →" link */}
             <Route path="/projects/:id/deploy" element={<InfraSetupWizardScreen />} />
 
-            {/* Admin Console — gated by VITE_SHIPYARD_ADMIN env var at build time */}
+            {/* Admin Console */}
             <Route path="/admin" element={<AdminScreen />} />
           </Route>
 
