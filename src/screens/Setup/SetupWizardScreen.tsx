@@ -22,7 +22,7 @@
  *   - Light theme (matches mockup design tokens)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/context/ToastContext';
@@ -403,6 +403,17 @@ function Screen3({
 
 function Screen4({ onNext: _onNext }: { onNext: () => void }) {
   const [isDragging, setIsDragging] = useState(false);
+  const [files,      setFiles]      = useState<File[]>([]);
+  const fileInputRef                = useRef<HTMLInputElement>(null);
+
+  function addFiles(incoming: FileList | null) {
+    if (!incoming) return;
+    const next = [...files];
+    Array.from(incoming).forEach(f => {
+      if (!next.find(x => x.name === f.name)) next.push(f);
+    });
+    setFiles(next);
+  }
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -417,7 +428,7 @@ function Screen4({ onNext: _onNext }: { onNext: () => void }) {
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(false);
-    // File upload implementation deferred to Build 038
+    addFiles(e.dataTransfer.files);
   }
 
   return (
@@ -455,6 +466,7 @@ function Screen4({ onNext: _onNext }: { onNext: () => void }) {
             Brand guidelines, user research, feature specs — anything that defines your product
           </div>
           <button
+            onClick={() => fileInputRef.current?.click()}
             style={{
               display: 'inline-block',
               background: 'white',
@@ -473,7 +485,37 @@ function Screen4({ onNext: _onNext }: { onNext: () => void }) {
           <div style={{ fontSize: 11, color: T.faint, marginTop: 12 }}>
             Accepts PDF, Markdown, Word, PNG, JPG · 10 MB max per file
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.md,.docx,.doc,.png,.jpg,.jpeg"
+            style={{ display: 'none' }}
+            onChange={e => addFiles(e.target.files)}
+          />
         </div>
+
+        {files.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            {files.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 16 }}>📄</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{f.name}</div>
+                    <div style={{ fontSize: 11, color: T.muted }}>{(f.size / 1024).toFixed(0)} KB</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 16, padding: '0 4px', lineHeight: 1 }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div style={{ padding: '16px 20px', background: `${T.accent}0f`, borderRadius: 10 }}>
           <div style={{ fontSize: 13, color: T.accent, fontWeight: 600, marginBottom: 6 }}>
