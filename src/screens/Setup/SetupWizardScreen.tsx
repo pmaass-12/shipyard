@@ -1,49 +1,55 @@
 /**
- * SetupWizardScreen — Build 032: Setup Wizard Full Redesign
+ * SetupWizardScreen — Build 065: Brief-First Onboarding
  *
  * Routes: /wizard/new or /projects/:id/wizard
  *
- * A 5-screen guided onboarding flow:
- *   Screen 1 — "What are you building?" (name, description, color)
- *   Screen 2 — "Who is this for?" (audience: personal, b2c, b2b)
- *   Screen 3 — "How will you make money?" (monetization — skipped for personal)
- *   Screen 4 — "Drop in what you've made" (optional file uploads)
- *   Screen 5 — "Done" (completion screen with pulse animation)
+ * Replaces the old 5-screen wizard (Build 032) with a 2-screen flow:
+ *   Screen 1 — Brief: "Tell me what you're building"
+ *     Reeve avatar, 4-row textarea, optional file upload, "Let's go →"
+ *     On submit: save description → fire-and-forget extract-features-from-brief
+ *     + generate-wizard-defaults → show loading state → go to Screen 2
  *
- * Key logic:
- *   - Personal audience silently skips Screen 3 (Screen 2 → Screen 4)
- *   - Progress dots: 4 for personal, 5 for b2c/b2b
- *   - Each screen saves incrementally to Supabase on "Next"
- *   - On Screen 5 CTA: call triggerWizardDefaults then navigate to /projects/:id
+ *   Screen 2 — Design Kickoff: "Let's set the visual direction."
+ *     Vibe chips (max 2), inspiration URLs (up to 3), screen checklist (2-col)
+ *     "Set up my project →" → /projects/:id/triage
+ *     "Skip for now" → /projects/:id (Project Hub)
+ *     Back button → Screen 1
+ *
+ * What was retired:
+ *   - Product name field (Screen 1) — captured at project creation
+ *   - Audience type chip selector (Screen 2)
+ *   - Monetization type picker (Screen 3)
+ *   - Document category upload screen (Screen 4)
+ *   - Completion screen with pulse animation (Screen 5)
+ *   - "Set up infrastructure" as a wizard CTA (moved to hub)
  *
  * Styling:
  *   - Inline styles only (no Tailwind)
  *   - Mobile responsive (max-width: 540px content)
- *   - Light theme (matches mockup design tokens)
+ *   - Light theme (design token object T)
+ *
+ * Draft persistence (Build 064 pattern):
+ *   - Key: shipyard_setup_wizard_draft_${projectId}
+ *   - Stores: s1 (brief text) and s2 (vibes, urls)
+ *   - Cleared on successful completion
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
-import { useToast } from '@/context/ToastContext';
+import { useParams, useNavigate }       from 'react-router-dom';
+import { useToast }                     from '@/context/ToastContext';
 import {
-  saveAudienceType,
+  saveBrief,
+  triggerExtractFeatures,
   triggerWizardDefaults,
+  saveDesignKickoff,
 } from '@/api/wizard';
-import {
-  getWizardScreenCount,
-  getNextWizardScreen,
-  getWizardDotCount,
-} from '@/types/db';
-import type { AudienceType, MonetizationType } from '@/types/db';
 import { extractErrorMessage } from '@/lib/extractErrorMessage';
 
-// ── Draft persistence (Build 064) ─────────────────────────────────────────
+// ── Draft persistence (Build 064 pattern) ────────────────────────────────────
 
 interface SetupWizardDraft {
-  s1?: { name: string; description: string; color: string };
-  s2?: { audienceType: AudienceType };
-  s3?: { monetizationType: MonetizationType };
+  s1?: { brief: string };
+  s2?: { vibes: string[]; inspirationUrls: string[] };
 }
 
 function getSetupDraftKey(projectId: string) {
@@ -74,905 +80,910 @@ function clearSetupDraft(projectId: string): void {
   } catch {}
 }
 
-// ── Design Tokens ─────────────────────────────────────────────────────────
+// ── Design Tokens ─────────────────────────────────────────────────────────────
 
 const T = {
-  accent:       '#5b5bd6',
-  accentHover:  '#4f4fbf',
-  bg:           '#f5f5f7',
-  surface:      '#ffffff',
-  border:       '#e5e5ea',
-  text:         '#1c1c1e',
-  muted:        '#6e6e73',
-  faint:        '#aeaeb2',
-  success:      '#34c759',
-  warning:      '#ff9f0a',
-  red:          '#ff3b30',
+  accent:      '#5b5bd6',
+  accentHover: '#4f4fbf',
+  bg:          '#f5f5f7',
+  surface:     '#ffffff',
+  border:      '#e5e5ea',
+  text:        '#1c1c1e',
+  muted:       '#6e6e73',
+  faint:       '#aeaeb2',
+  success:     '#34c759',
+  red:         '#ff3b30',
 };
 
-const COLOR_SWATCHES = [
-  '#5b5bd6', '#3b82f6', '#06b6d4', '#10b981',
-  '#34d399', '#f59e0b', '#f97316', '#ef4444',
-  '#ec4899', '#64748b',
+// ── Shared layout styles ──────────────────────────────────────────────────────
+
+const screenStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: 'auto',
+  paddingBottom: 32,
+};
+
+const contentStyle: React.CSSProperties = {
+  maxWidth: 540,
+  margin: '0 auto',
+  padding: '0 24px',
+};
+
+const headlineStyle: React.CSSProperties = {
+  fontSize: 28,
+  fontWeight: 800,
+  letterSpacing: '-0.03em',
+  color: T.text,
+  margin: '0 0 8px',
+};
+
+const subheadStyle: React.CSSProperties = {
+  fontSize: 15,
+  color: T.muted,
+  lineHeight: 1.5,
+  margin: '0 0 28px',
+};
+
+// ── Vibe chips data ───────────────────────────────────────────────────────────
+
+const VIBE_CHIPS = [
+  { slug: 'minimal',      label: 'Minimal & clean' },
+  { slug: 'bold',         label: 'Bold & expressive' },
+  { slug: 'professional', label: 'Professional & serious' },
+  { slug: 'warm',         label: 'Warm & friendly' },
+  { slug: 'playful',      label: 'Playful & fun' },
+  { slug: 'elegant',      label: 'Elegant & premium' },
+] as const;
+
+// ── Screen checklist data (V1: hardcoded; will use generate-screen-suggestions in V2) ──
+
+const SCREEN_OPTIONS = [
+  'Dashboard',
+  'Sign In',
+  'Settings',
+  'User Profile',
+  'Onboarding',
+  'Admin Panel',
 ];
 
-// ── Screen 1: Product Identity ────────────────────────────────────────────
+// ── Reeve avatar ──────────────────────────────────────────────────────────────
 
-interface Screen1Data {
-  name: string;
-  description: string;
-  color: string;
-}
-
-function Screen1({ projectId, onNext: _onNext }: { projectId: string; onNext: () => void }) {
-  const [data, setData] = useState<Screen1Data>(() => {
-    const draft = readSetupDraft(projectId);
-    return draft.s1 ?? { name: '', description: '', color: COLOR_SWATCHES[0] };
-  });
-
-  useEffect(() => {
-    writeSetupDraft(projectId, { s1: data });
-  }, [data, projectId]);
-
+function ReeveAvatar({ size = 56, pulse = false }: { size?: number; pulse?: boolean }) {
   return (
-    <div data-testid="wizard-screen-1" style={screenStyle}>
-      <div style={contentStyle}>
-        <h1 style={headlineStyle}>What are you building?</h1>
-        <p style={subheadStyle}>
-          Give your product a name and a one-sentence description. You can always change these.
-        </p>
-
-        {/* Product Name */}
-        <div style={{ marginBottom: 24 }}>
-          <input
-            type="text"
-            data-testid="wizard-product-name"
-            value={data.name}
-            onChange={(e) => setData({ ...data, name: e.target.value.slice(0, 50) })}
-            placeholder="Product name"
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      {pulse && (
+        <>
+          <div
             style={{
-              ...inputStyle,
-              fontSize: 22,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              padding: '16px 18px',
+              position: 'absolute',
+              inset: -16,
+              borderRadius: '50%',
+              background: `${T.accent}18`,
+              animation: 'pulse-ring 2s ease-out infinite',
             }}
           />
-          <div style={{ textAlign: 'right', fontSize: 11, color: T.faint, marginTop: 5 }}>
-            {data.name.length} / 50
-          </div>
-        </div>
-
-        {/* Description */}
-        <div style={{ marginBottom: 24 }}>
-          <label style={labelStyle}>What does it do in one sentence?</label>
-          <textarea
-            data-testid="wizard-product-description"
-            value={data.description}
-            onChange={(e) => setData({ ...data, description: e.target.value.slice(0, 200) })}
-            placeholder="A tool that helps freelancers track invoices and get paid on time."
+          <div
             style={{
-              ...inputStyle,
-              fontSize: 15,
-              height: 90,
-              resize: 'none',
-            } as React.CSSProperties}
+              position: 'absolute',
+              inset: -8,
+              borderRadius: '50%',
+              background: `${T.accent}14`,
+              animation: 'pulse-ring 2s ease-out 0.4s infinite',
+            }}
           />
-          <div style={{ textAlign: 'right', fontSize: 11, color: T.faint, marginTop: 5 }}>
-            {data.description.length} / 200
-          </div>
-        </div>
-
-        {/* Color Picker */}
-        <div style={{ marginBottom: 0 }}>
-          <label style={labelStyle}>Pick a color</label>
-          <label style={sublabelStyle}>This will theme your project in Shipyard.</label>
-          <div data-testid="wizard-color-picker" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
-            {COLOR_SWATCHES.map((color) => (
-              <button
-                key={color}
-                onClick={() => setData({ ...data, color })}
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: '50%',
-                  background: color,
-                  border: data.color === color ? `2.5px solid ${T.text}` : '2.5px solid transparent',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  transform: data.color === color ? 'scale(1.1)' : 'scale(1)',
-                  position: 'relative',
-                  padding: 0,
-                }}
-              >
-                {data.color === color && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 3,
-                      borderRadius: '50%',
-                      border: '2px solid white',
-                      pointerEvents: 'none',
-                    }}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
+        </>
+      )}
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size * 0.28,
+          background: `linear-gradient(135deg, ${T.accent} 0%, #7c7ce0 100%)`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: size * 0.45,
+          boxShadow: `0 4px 20px ${T.accent}33`,
+          flexShrink: 0,
+          position: 'relative',
+        }}
+      >
+        ✦
       </div>
     </div>
   );
 }
 
-// ── Screen 2: Audience Selection ──────────────────────────────────────────
+// ── Screen 1: Brief ───────────────────────────────────────────────────────────
 
-interface AudienceCard {
-  id: AudienceType;
-  icon: string;
-  title: string;
-  description: string;
-}
-
-const AUDIENCE_CARDS: AudienceCard[] = [
-  {
-    id: 'personal',
-    icon: '🧑‍💻',
-    title: 'Just me / My team',
-    description: 'A personal project or internal tool — not for public distribution',
-  },
-  {
-    id: 'b2c',
-    icon: '👥',
-    title: 'Consumers',
-    description: 'A product for individual users — you\'ll grow it publicly',
-  },
-  {
-    id: 'b2b',
-    icon: '🏢',
-    title: 'Businesses',
-    description: 'A product sold to companies — you\'ll grow it via sales and demos',
-  },
-];
-
-function Screen2({
+function ScreenBrief({
   projectId,
   onNext,
 }: {
   projectId: string;
-  onNext: (audienceType: AudienceType) => void;
+  onNext: (brief: string) => Promise<void>;
 }) {
-  const [selected, setSelected] = useState<AudienceType>(() => {
+  const [brief, setBrief] = useState<string>(() => {
     const draft = readSetupDraft(projectId);
-    return draft.s2?.audienceType ?? 'b2c';
+    return draft.s1?.brief ?? '';
   });
-  const [error, setError] = useState('');
-  const { showToast } = useToast();
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState('');
+  const fileInputRef          = useRef<HTMLInputElement>(null);
+  const textareaRef           = useRef<HTMLTextAreaElement>(null);
 
+  // Persist draft on brief change
   useEffect(() => {
-    writeSetupDraft(projectId, { s2: { audienceType: selected } });
-  }, [selected, projectId]);
+    writeSetupDraft(projectId, { s1: { brief } });
+  }, [brief, projectId]);
 
-  async function handleNext() {
+  async function handleSubmit() {
+    const trimmed = brief.trim();
+    if (!trimmed) {
+      setError('Tell us a bit about your product first.');
+      textareaRef.current?.focus();
+      return;
+    }
     setError('');
+    setSaving(true);
     try {
-      await saveAudienceType(projectId, selected);
-      showToast('Audience type saved');
-      onNext(selected);
+      await onNext(trimmed);
     } catch (err) {
-      setError(extractErrorMessage(err, 'Save failed'));
+      setError(extractErrorMessage(err, 'Save failed — please try again.'));
+      setSaving(false);
+    }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return;
+    setUploadedFile(file);
+    // For .txt and .md files, read the content and append to brief
+    if (file.type === 'text/plain' || file.name.endsWith('.md') || file.name.endsWith('.txt')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        if (text) {
+          setBrief(prev => prev ? `${prev}\n\n${text}` : text);
+        }
+      };
+      reader.readAsText(file);
     }
   }
 
   return (
-    <div data-testid="wizard-screen-2" style={screenStyle}>
+    <div data-testid="wizard-screen-brief" style={screenStyle}>
       <div style={contentStyle}>
-        <h1 style={headlineStyle}>Who is this for?</h1>
-        <p style={subheadStyle}>
-          This helps Shipyard tailor features, analytics, and growth tools to your product.
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-          {AUDIENCE_CARDS.map((card) => (
-            <button
-              key={card.id}
-              data-testid={`wizard-audience-${card.id}`}
-              onClick={() => setSelected(card.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleNext();
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                padding: '18px 20px',
-                background: T.surface,
-                border: `2px solid ${selected === card.id ? T.accent : T.border}`,
-                borderRadius: 12,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                backgroundColor: selected === card.id ? `${T.accent}0a` : T.surface,
-                textAlign: 'left',
-                fontFamily: 'inherit',
-              }}
-            >
-              <div style={{ fontSize: 28, flexShrink: 0, width: 44, textAlign: 'center' }}>
-                {card.icon}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: T.text, marginBottom: 3 }}>
-                  {card.title}
-                </div>
-                <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.4 }}>
-                  {card.description}
-                </div>
-              </div>
-              <div
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: '50%',
-                  border: `2px solid ${selected === card.id ? T.accent : T.border}`,
-                  background: selected === card.id ? T.accent : 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontSize: 11,
-                  flexShrink: 0,
-                  fontWeight: 700,
-                }}
-              >
-                {selected === card.id && '✓'}
-              </div>
-            </button>
-          ))}
+        {/* Reeve intro */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
+          <ReeveAvatar size={52} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, marginBottom: 2 }}>
+              Reeve
+            </div>
+            <div style={{ fontSize: 14, color: T.muted, lineHeight: 1.4 }}>
+              I'll read your brief and get the team started.
+            </div>
+          </div>
         </div>
 
-        <p style={{ fontSize: 12, color: T.faint, margin: 0 }}>
-          You can change this any time in settings.
-        </p>
-
-        {error && <p style={{ color: T.red, fontSize: 12, margin: '12px 0 0' }}>{error}</p>}
-      </div>
-    </div>
-  );
-}
-
-// ── Screen 3: Monetization Selection ──────────────────────────────────────
-
-interface MonetizationCard {
-  id: MonetizationType;
-  icon: string;
-  title: string;
-  description: string;
-}
-
-const MONETIZATION_CARDS: MonetizationCard[] = [
-  {
-    id: 'free',
-    icon: '🆓',
-    title: 'Free',
-    description: 'No charge — build and share freely with anyone',
-  },
-  {
-    id: 'adsense',
-    icon: '📣',
-    title: 'Ad-supported',
-    description: 'Display ads using Google AdSense on public pages',
-  },
-  {
-    id: 'subscription',
-    icon: '🔁',
-    title: 'Subscription',
-    description: 'Recurring monthly or annual plans via Stripe',
-  },
-  {
-    id: 'one_time',
-    icon: '💳',
-    title: 'One-time purchase',
-    description: 'A single payment for access via Stripe',
-  },
-  {
-    id: 'donation',
-    icon: '❤️',
-    title: 'Donations',
-    description: 'Accept one-time or recurring donations from your users',
-  },
-];
-
-function Screen3({
-  projectId,
-  onNext: _onNext,
-}: {
-  projectId: string;
-  onNext: () => void;
-}) {
-  const [selected, setSelected] = useState<MonetizationType>(() => {
-    const draft = readSetupDraft(projectId);
-    return draft.s3?.monetizationType ?? 'free';
-  });
-
-  useEffect(() => {
-    writeSetupDraft(projectId, { s3: { monetizationType: selected } });
-  }, [selected, projectId]);
-
-  return (
-    <div data-testid="wizard-screen-3" style={screenStyle}>
-      <div style={contentStyle}>
-        <h1 style={headlineStyle}>How will you make money?</h1>
+        <h1 style={headlineStyle}>Tell me what you're building.</h1>
         <p style={subheadStyle}>
-          Shipyard sets up the right infrastructure based on your model. You can add more models later.
+          Describe your product — or upload a brief below.
         </p>
 
+        {/* Brief textarea */}
+        <textarea
+          ref={textareaRef}
+          data-testid="wizard-brief-textarea"
+          value={brief}
+          onChange={e => setBrief(e.target.value)}
+          placeholder="What does it do, who's it for, what problem does it fix?"
+          rows={4}
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '14px 16px',
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: T.text,
+            background: T.surface,
+            border: `1.5px solid ${T.border}`,
+            borderRadius: 10,
+            resize: 'vertical',
+            fontFamily: 'inherit',
+            outline: 'none',
+            transition: 'border-color 0.15s',
+            marginBottom: 12,
+          }}
+          onFocus={e => { e.currentTarget.style.borderColor = T.accent; }}
+          onBlur={e => { e.currentTarget.style.borderColor = T.border; }}
+        />
+
+        {/* File upload row */}
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
+            display: 'flex',
+            alignItems: 'center',
             gap: 12,
-            marginBottom: 24,
+            marginBottom: 28,
           }}
         >
-          {MONETIZATION_CARDS.map((card) => (
-            <button
-              key={card.id}
-              data-testid={`wizard-monetization-${card.id}`}
-              onClick={() => setSelected(card.id)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-                padding: '18px 16px',
-                background: T.surface,
-                border: `2px solid ${selected === card.id ? T.accent : T.border}`,
-                borderRadius: 12,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                backgroundColor: selected === card.id ? `${T.accent}0a` : T.surface,
-                textAlign: 'left',
-                fontFamily: 'inherit',
-              }}
-            >
-              <div style={{ fontSize: 26 }}>{card.icon}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>
-                {card.title}
-              </div>
-              <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.4 }}>
-                {card.description}
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <p style={{ fontSize: 12, color: T.faint, margin: 0 }}>
-          You can add multiple monetization models later in Admin Console.
-        </p>
-
-      </div>
-    </div>
-  );
-}
-
-// ── Screen 4: File Uploads ────────────────────────────────────────────────
-
-function Screen4({ onNext: _onNext }: { onNext: () => void }) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [files,      setFiles]      = useState<File[]>([]);
-  const fileInputRef                = useRef<HTMLInputElement>(null);
-
-  function addFiles(incoming: FileList | null) {
-    if (!incoming) return;
-    const next = [...files];
-    Array.from(incoming).forEach(f => {
-      if (!next.find(x => x.name === f.name)) next.push(f);
-    });
-    setFiles(next);
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragging(true);
-  }
-
-  function handleDragLeave(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragging(false);
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragging(false);
-    addFiles(e.dataTransfer.files);
-  }
-
-  return (
-    <div data-testid="wizard-screen-4" style={screenStyle}>
-      <div style={contentStyle}>
-        <h1 style={headlineStyle}>Drop in anything you've already made</h1>
-        <p style={subheadStyle}>
-          Claude uses these every time it generates screens, code, or copy for your product.
-          Optional — but the more context, the better the output.
-        </p>
-
-        <div
-          data-testid="wizard-file-upload"
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          style={{
-            border: `2px dashed ${isDragging ? T.accent : '#c7c7cc'}`,
-            borderRadius: 14,
-            padding: '40px 24px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            background: isDragging ? `${T.accent}06` : T.surface,
-            marginBottom: 20,
-          }}
-        >
-          <div style={{ width: 48, height: 48, margin: '0 auto 14px', background: '#f0f0f7', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
-            📎
-          </div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: T.text, marginBottom: 6 }}>
-            Drop your product brief, wireframes, or PR-FAQ
-          </div>
-          <div style={{ fontSize: 13, color: T.muted, marginBottom: 16, lineHeight: 1.5 }}>
-            Brand guidelines, user research, feature specs — anything that defines your product
-          </div>
           <button
             onClick={() => fileInputRef.current?.click()}
             style={{
-              display: 'inline-block',
-              background: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'transparent',
               border: `1.5px solid ${T.border}`,
-              color: T.text,
+              color: T.muted,
               fontSize: 13,
-              fontWeight: 600,
-              padding: '8px 18px',
+              fontWeight: 500,
+              padding: '8px 14px',
               borderRadius: 8,
               cursor: 'pointer',
+              fontFamily: 'inherit',
               transition: 'all 0.15s',
             }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = T.accent;
+              e.currentTarget.style.color = T.accent;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = T.border;
+              e.currentTarget.style.color = T.muted;
+            }}
           >
-            Browse files
+            📎 Upload brief
           </button>
-          <div style={{ fontSize: 11, color: T.faint, marginTop: 12 }}>
-            Accepts PDF, Markdown, Word, PNG, JPG · 10 MB max per file
-          </div>
+          <span style={{ fontSize: 11, color: T.faint }}>
+            {uploadedFile
+              ? uploadedFile.name
+              : 'PDF, DOCX, or TXT · optional'}
+          </span>
+          {uploadedFile && (
+            <button
+              onClick={() => {
+                setUploadedFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: T.faint,
+                fontSize: 14,
+                padding: '2px 4px',
+                lineHeight: 1,
+                fontFamily: 'inherit',
+              }}
+            >
+              ×
+            </button>
+          )}
           <input
             ref={fileInputRef}
             type="file"
-            multiple
-            accept=".pdf,.md,.docx,.doc,.png,.jpg,.jpeg"
+            accept=".pdf,.md,.docx,.doc,.txt,.text"
             style={{ display: 'none' }}
-            onChange={e => addFiles(e.target.files)}
+            onChange={handleFileChange}
           />
         </div>
 
-        {files.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-            {files.map((f, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 16 }}>📄</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{f.name}</div>
-                    <div style={{ fontSize: 11, color: T.muted }}>{(f.size / 1024).toFixed(0)} KB</div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setFiles(files.filter((_, j) => j !== i))}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 16, padding: '0 4px', lineHeight: 1 }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
+        {error && (
+          <p style={{ color: T.red, fontSize: 13, margin: '0 0 16px' }}>{error}</p>
         )}
 
-        <div style={{ padding: '16px 20px', background: `${T.accent}0f`, borderRadius: 10 }}>
-          <div style={{ fontSize: 13, color: T.accent, fontWeight: 600, marginBottom: 6 }}>
-            💡 What works great
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: T.muted }}>
-            <div>🤖 &nbsp;AI-generated product specs from ChatGPT or Notion AI</div>
-            <div>✏️ &nbsp;Hand-drawn or Figma wireframe exports (PNG or PDF)</div>
-            <div>📄 &nbsp;PR-FAQs, one-pagers, or pitch decks</div>
-            <div>🎨 &nbsp;Brand guidelines with colors and typography</div>
-          </div>
-        </div>
+        {/* CTA */}
+        <button
+          data-testid="wizard-brief-submit"
+          onClick={handleSubmit}
+          disabled={saving}
+          style={{
+            width: '100%',
+            height: 48,
+            fontSize: 16,
+            fontWeight: 600,
+            background: saving ? T.faint : T.accent,
+            color: 'white',
+            border: 'none',
+            borderRadius: 10,
+            cursor: saving ? 'not-allowed' : 'pointer',
+            transition: 'all 0.15s',
+            fontFamily: 'inherit',
+          }}
+        >
+          {saving ? 'Saving…' : 'Let\'s go →'}
+        </button>
       </div>
     </div>
   );
 }
 
-// ── Screen 5: Completion ──────────────────────────────────────────────────
+// ── Loading screen ────────────────────────────────────────────────────────────
 
-function Screen5({
-  projectId,
-  onCompletion: _onCompletion,
-}: {
-  projectId: string;
-  onCompletion: () => void;
-}) {
-  const [triggering, setTriggering] = useState(false);
-  const [error, setError] = useState('');
-  const { showToast } = useToast();
-  const navigate = useNavigate();
+function ScreenLoading() {
+  const [stepIndex, setStepIndex] = useState(0);
 
-  async function handleCompletion() {
-    setTriggering(true);
-    setError('');
-    try {
-      await triggerWizardDefaults(projectId);   // non-fatal: warns but never throws
-      clearSetupDraft(projectId);
-      showToast('Project setup complete!');
-      navigate(`/projects/${projectId}`);
-    } catch (err) {
-      setError(extractErrorMessage(err, 'Completion failed'));
-      console.error('Wizard completion error:', err);
-    } finally {
-      setTriggering(false);
-    }
-  }
+  const steps = [
+    { label: 'Brief received',       done: true  },
+    { label: 'Extracting features',  done: false },
+    { label: 'Suggesting screens',   done: false },
+  ];
 
-  async function handleSetupInfra() {
-    setTriggering(true);
-    setError('');
-    try {
-      await triggerWizardDefaults(projectId);   // non-fatal: warns but never throws
-      clearSetupDraft(projectId);
-      showToast('Project setup complete!');
-      navigate(`/projects/${projectId}/setup/infra`); // routing-fix-031: /deploy has no route; infra wizard lives at /setup/infra
-    } catch (err) {
-      setError(extractErrorMessage(err, 'Completion failed'));
-      console.error('Wizard completion error:', err);
-    } finally {
-      setTriggering(false);
-    }
-  }
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStepIndex(1), 800),
+      setTimeout(() => setStepIndex(2), 2200),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
 
   return (
-    <div data-testid="wizard-screen-5" style={screenStyle}>
-      <div style={contentStyle}>
-        <div style={{ textAlign: 'center', paddingTop: 20 }}>
-          {/* Pulse ring animation */}
-          <div style={{ position: 'relative', display: 'inline-block', marginBottom: 28 }}>
+    <div
+      data-testid="wizard-screen-loading"
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 24px',
+        minHeight: 360,
+      }}
+    >
+      <ReeveAvatar size={80} pulse />
+
+      <div style={{ marginTop: 32, fontSize: 24, fontWeight: 800, color: T.text, letterSpacing: '-0.03em', marginBottom: 32 }}>
+        Reading your brief…
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 320 }}>
+        {steps.map((step, i) => {
+          const isDone    = i < stepIndex;
+          const isActive  = i === stepIndex;
+          const isPending = i > stepIndex;
+
+          return (
             <div
+              key={step.label}
               style={{
-                position: 'absolute',
-                inset: -12,
-                borderRadius: 36,
-                background: `${T.accent}1a`,
-                animation: 'pulse-ring 2s ease-out infinite',
-              }}
-            />
-            <div
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: 24,
-                background: `linear-gradient(135deg, ${T.accent} 0%, #7c7ce0 100%)`,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 36,
-                boxShadow: `0 8px 32px ${T.accent}4d`,
+                gap: 14,
+                opacity: isPending ? 0.35 : 1,
+                transition: 'opacity 0.4s',
               }}
             >
-              ⚡
+              {/* Status indicator */}
+              <div
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: '50%',
+                  background: isDone
+                    ? T.success
+                    : isActive
+                    ? T.accent
+                    : T.border,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  transition: 'background 0.3s',
+                  fontSize: 11,
+                  color: 'white',
+                  fontWeight: 700,
+                }}
+              >
+                {isDone ? '✓' : isActive ? (
+                  <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'white', animation: 'blink 1s ease-in-out infinite' }} />
+                ) : null}
+              </div>
+              <span style={{ fontSize: 14, color: isDone ? T.success : isActive ? T.text : T.muted, fontWeight: isDone || isActive ? 600 : 400, transition: 'all 0.3s' }}>
+                {step.label}
+              </span>
             </div>
-          </div>
-
-          <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-0.04em', color: T.text, marginBottom: 8 }}>
-            Let's start designing.
-          </div>
-          <div style={{ fontSize: 16, color: T.muted, marginBottom: 32 }}>
-            Reeve and the team are ready to go.
-          </div>
-
-          {error && <p style={{ color: T.red, fontSize: 12, margin: '0 0 16px' }}>{error}</p>}
-
-          {/* Build 032-upd2: Two-CTA layout — both 320px wide, centred, not in bottom nav */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            {/* Primary CTA: Start designing → */}
-            <button
-              data-testid="wizard-completion-cta"
-              onClick={handleCompletion}
-              disabled={triggering}
-              style={{
-                width: 320,
-                height: 48,
-                fontSize: 16,
-                fontWeight: 600,
-                background: T.accent,
-                color: 'white',
-                border: 'none',
-                borderRadius: 10,
-                cursor: triggering ? 'not-allowed' : 'pointer',
-                transition: 'all 0.15s',
-                opacity: triggering ? 0.7 : 1,
-                fontFamily: 'inherit',
-              }}
-            >
-              {triggering ? 'Setting up…' : 'Start designing →'}
-            </button>
-
-            {/* Secondary CTA: Set up infrastructure (ghost/outlined) */}
-            <button
-              data-testid="wizard-setup-infra-cta"
-              onClick={handleSetupInfra}
-              disabled={triggering}
-              style={{
-                width: 320,
-                height: 48,
-                fontSize: 15,
-                fontWeight: 600,
-                background: 'transparent',
-                color: T.accent,
-                border: `2px solid ${T.accent}`,
-                borderRadius: 10,
-                cursor: triggering ? 'not-allowed' : 'pointer',
-                transition: 'all 0.15s',
-                fontFamily: 'inherit',
-                opacity: triggering ? 0.7 : 1,
-              }}
-            >
-              Set up infrastructure
-            </button>
-            <div style={{ fontSize: 12, color: T.faint, lineHeight: 1.5, textAlign: 'center', maxWidth: 320 }}>
-              Connect GitHub, Netlify, and Supabase — you can do this now or later
-            </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
       <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.2; }
+        }
         @keyframes pulse-ring {
-          0% { transform: scale(1); opacity: 0.8; }
-          100% { transform: scale(1.5); opacity: 0; }
+          0%   { transform: scale(0.9); opacity: 0.7; }
+          70%  { transform: scale(1.2); opacity: 0; }
+          100% { transform: scale(1.2); opacity: 0; }
         }
       `}</style>
     </div>
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────
+// ── Screen 2: Design Kickoff ──────────────────────────────────────────────────
 
-export default function SetupWizardScreen() {
-  const { id: projectId } = useParams<{ id: string }>();
+function ScreenDesignKickoff({
+  projectId,
+  onComplete,
+  onSkip,
+}: {
+  projectId:  string;
+  onComplete: (vibes: string[], urls: string[]) => Promise<void>;
+  onSkip:     () => void;
+}) {
+  const draft = readSetupDraft(projectId);
 
-  const [currentScreen, setCurrentScreen] = useState(1);
-  const [audienceType, setAudienceType] = useState<AudienceType>('b2c');
-  const [loading, setLoading] = useState(true);
+  const [selectedVibes,     setSelectedVibes]     = useState<string[]>(draft.s2?.vibes        ?? []);
+  const [inspirationUrls,   setInspirationUrls]   = useState<string[]>(draft.s2?.inspirationUrls ?? ['']);
+  const [checkedScreens,    setCheckedScreens]    = useState<Set<string>>(
+    () => new Set(SCREEN_OPTIONS.filter(s => s !== 'Admin Panel')),
+  );
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState('');
 
-  // Load existing wizard config if returning user
+  // Persist draft
   useEffect(() => {
-    async function loadWizardState() {
-      if (!projectId) return;
-      try {
-        const { data } = await supabase
-          .from('wizard_config')
-          .select('audience_type')
-          .eq('project_id', projectId)
-          .single();
+    const cleanUrls = inspirationUrls.filter(u => u.trim());
+    writeSetupDraft(projectId, { s2: { vibes: selectedVibes, inspirationUrls: cleanUrls } });
+  }, [selectedVibes, inspirationUrls, projectId]);
 
-        if (data?.audience_type) {
-          setAudienceType(data.audience_type);
-        }
-      } catch (err) {
-        // No existing config — start fresh
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadWizardState();
-  }, [projectId]);
-
-  if (!projectId || loading) {
-    return (
-      <div style={{ ...screenStyle, justifyContent: 'center', alignItems: 'center' }}>
-        <div style={{ color: T.muted }}>Loading...</div>
-      </div>
-    );
+  function toggleVibe(slug: string) {
+    setSelectedVibes(prev => {
+      if (prev.includes(slug)) return prev.filter(v => v !== slug);
+      if (prev.length >= 2)    return prev; // max 2
+      return [...prev, slug];
+    });
   }
 
-  const screenCount = getWizardScreenCount(audienceType);
-  const dotCount = getWizardDotCount(audienceType);
+  function toggleScreen(name: string) {
+    setCheckedScreens(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
 
-  // Progress dots: show all, mark prev as done, mark current as active
-  const dots = Array.from({ length: dotCount }, (_, i) => {
-    const screenNum = i + 1;
-    if (screenNum < currentScreen) return 'done';
-    if (screenNum === currentScreen) return 'active';
-    return 'idle';
-  });
+  function addUrlRow() {
+    if (inspirationUrls.length >= 3) return;
+    setInspirationUrls(prev => [...prev, '']);
+  }
 
-  function handleNext() {
-    const nextScreen = getNextWizardScreen(currentScreen, audienceType);
-    if (nextScreen <= screenCount) {
-      setCurrentScreen(nextScreen);
-      window.scrollTo(0, 0);
+  function removeUrlRow(i: number) {
+    setInspirationUrls(prev => prev.filter((_, j) => j !== i));
+  }
+
+  function updateUrl(i: number, value: string) {
+    setInspirationUrls(prev => prev.map((u, j) => j === i ? value : u));
+  }
+
+  async function handleComplete() {
+    setSaving(true);
+    setError('');
+    try {
+      const cleanUrls = inspirationUrls.map(u => u.trim()).filter(Boolean);
+      await onComplete(selectedVibes, cleanUrls);
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Save failed — please try again.'));
+      setSaving(false);
     }
   }
 
-  function handleBack() {
-    if (currentScreen > 1) {
-      let prevScreen = currentScreen - 1;
-      // Skip Screen 3 for personal when going back from Screen 4
-      if (prevScreen === 3 && audienceType === 'personal') {
-        prevScreen = 2;
-      }
-      setCurrentScreen(prevScreen);
-      window.scrollTo(0, 0);
-    }
-  }
-
-  const showBackBtn = currentScreen > 1;
-  const showSkipBtn = currentScreen === 4;
+  const sectionNumberStyle: React.CSSProperties = {
+    width: 24,
+    height: 24,
+    borderRadius: '50%',
+    background: T.accent,
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 700,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  };
 
   return (
-    <div style={{ minHeight: '100vh', background: T.bg, color: T.text, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', display: 'flex', flexDirection: 'column' }}>
-      {/* Topbar */}
-      <div style={{ height: 56, background: T.surface, borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', flexShrink: 0 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: T.text, display: 'flex', alignItems: 'center', gap: 8 }}>
-          Shipyard{' '}
-          <span style={{ background: T.accent, color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, letterSpacing: '0.04em' }}>
-            BETA
-          </span>
+    <div data-testid="wizard-screen-kickoff" style={screenStyle}>
+      <div style={contentStyle}>
+        <h1 style={headlineStyle}>Let's set the visual direction.</h1>
+        <p style={subheadStyle}>
+          Three quick questions. Skip anything that doesn't apply yet.
+        </p>
+
+        {/* Section 1 — Vibe */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={sectionNumberStyle}>1</div>
+            <span style={{ fontSize: 15, fontWeight: 600, color: T.text }}>
+              What's the feel of this product?
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: T.muted, marginBottom: 12, marginLeft: 34 }}>
+            Select up to 2
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginLeft: 34 }}>
+            {VIBE_CHIPS.map(chip => {
+              const active = selectedVibes.includes(chip.slug);
+              const maxed  = !active && selectedVibes.length >= 2;
+              return (
+                <button
+                  key={chip.slug}
+                  data-testid={`wizard-vibe-${chip.slug}`}
+                  onClick={() => !maxed && toggleVibe(chip.slug)}
+                  style={{
+                    padding: '8px 14px',
+                    fontSize: 13,
+                    fontWeight: active ? 600 : 400,
+                    background: active ? T.accent : T.surface,
+                    color: active ? 'white' : maxed ? T.faint : T.text,
+                    border: `1.5px solid ${active ? T.accent : T.border}`,
+                    borderRadius: 20,
+                    cursor: maxed ? 'default' : 'pointer',
+                    transition: 'all 0.15s',
+                    fontFamily: 'inherit',
+                    opacity: maxed ? 0.5 : 1,
+                  }}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <span style={{ fontSize: 12, color: T.faint }}>Progress is saved automatically</span>
-      </div>
 
-      {/* Progress Indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '28px 0 0', background: T.bg }}>
-        <div data-testid="wizard-dots" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {dots.map((state, i) => (
-            <div
-              key={i}
-              style={{
-                width: state === 'active' ? 24 : 8,
-                height: 8,
-                borderRadius: state === 'active' ? 4 : '50%',
-                background: state === 'done' || state === 'active' ? T.accent : '#d1d1d6',
-                transition: 'all 0.25s',
-              }}
-            />
-          ))}
-        </div>
-      </div>
-      <p style={{ fontSize: 12, color: T.muted, textAlign: 'center', margin: '10px 0 0', letterSpacing: '0.01em' }}>
-        Step {currentScreen} of {screenCount}
-      </p>
-
-      {/* Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 24px 80px', background: T.bg }}>
-        {currentScreen === 1 && <Screen1 projectId={projectId} onNext={handleNext} />}
-        {currentScreen === 2 && (
-          <Screen2
-            projectId={projectId}
-            onNext={(selected) => {
-              setAudienceType(selected);
-              handleNext();
-            }}
-          />
-        )}
-        {currentScreen === 3 && <Screen3 projectId={projectId} onNext={handleNext} />}
-        {currentScreen === 4 && <Screen4 onNext={handleNext} />}
-        {currentScreen === 5 && <Screen5 projectId={projectId} onCompletion={handleNext} />}
-      </div>
-
-      {/* Bottom Navigation */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 72, background: `rgba(245,245,247,0.92)`, backdropFilter: 'blur(12px)', borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, zIndex: 100, padding: '0 24px' }}>
-        <div style={{ width: '100%', maxWidth: 540, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button
-            data-testid="wizard-back-btn"
-            onClick={handleBack}
-            disabled={!showBackBtn}
-            style={{ background: 'none', border: 'none', fontSize: 14, color: T.muted, cursor: showBackBtn ? 'pointer' : 'default', padding: '10px 0', fontFamily: 'inherit', transition: 'color 0.15s', display: 'flex', alignItems: 'center', gap: 6, opacity: showBackBtn ? 1 : 0, pointerEvents: showBackBtn ? 'auto' : 'none' }}
-          >
-            ← Back
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {showSkipBtn && (
+        {/* Section 2 — Inspiration URLs */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={sectionNumberStyle}>2</div>
+            <span style={{ fontSize: 15, fontWeight: 600, color: T.text }}>
+              Any sites or apps you love the look of?
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: T.muted, marginBottom: 12, marginLeft: 34 }}>
+            These help us understand your visual direction · up to 3
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginLeft: 34 }}>
+            {inspirationUrls.map((url, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="url"
+                  value={url}
+                  placeholder="https://linear.app"
+                  onChange={e => updateUrl(i, e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '9px 12px',
+                    fontSize: 13,
+                    color: T.text,
+                    background: T.surface,
+                    border: `1.5px solid ${T.border}`,
+                    borderRadius: 8,
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                    transition: 'border-color 0.15s',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = T.accent; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = T.border; }}
+                />
+                {inspirationUrls.length > 1 && (
+                  <button
+                    onClick={() => removeUrlRow(i)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: T.faint,
+                      fontSize: 16,
+                      padding: '4px 6px',
+                      lineHeight: 1,
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+            {inspirationUrls.length < 3 && (
               <button
-                data-testid="wizard-skip-upload"
-                onClick={handleNext}
-                style={{ background: 'none', border: 'none', fontSize: 13, color: T.faint, cursor: 'pointer', fontFamily: 'inherit', padding: '8px 0', transition: 'color 0.15s' }}
+                onClick={addUrlRow}
+                style={{
+                  alignSelf: 'flex-start',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: T.accent,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  padding: '4px 0',
+                  fontFamily: 'inherit',
+                }}
               >
-                Skip for now →
+                + Add another
               </button>
             )}
-            <button
-              data-testid="wizard-next-btn"
-              onClick={handleNext}
-              style={{
-                background: T.accent,
-                color: 'white',
-                border: 'none',
-                fontSize: 15,
-                fontWeight: 600,
-                padding: '13px 32px',
-                borderRadius: 10,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                transition: 'all 0.15s',
-                display: currentScreen === 5 ? 'none' : 'flex',
-                alignItems: 'center',
-                gap: 8,
-                letterSpacing: '-0.01em',
-              }}
-            >
-              Continue →
-            </button>
           </div>
+        </div>
+
+        {/* Section 3 — Screen checklist */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={sectionNumberStyle}>3</div>
+            <span style={{ fontSize: 15, fontWeight: 600, color: T.text }}>
+              Screens you'll need
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: T.muted, marginBottom: 12, marginLeft: 34 }}>
+            Uncheck any you don't need — Reeve will suggest more once you start building
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '10px 16px',
+              marginLeft: 34,
+            }}
+          >
+            {SCREEN_OPTIONS.map(name => {
+              const checked = checkedScreens.has(name);
+              return (
+                <button
+                  key={name}
+                  data-testid={`wizard-screen-chip-${name.toLowerCase().replace(/\s+/g, '-')}`}
+                  onClick={() => toggleScreen(name)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 12px',
+                    background: checked ? `${T.accent}0c` : T.surface,
+                    border: `1.5px solid ${checked ? T.accent : T.border}`,
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 4,
+                      border: `1.5px solid ${checked ? T.accent : T.faint}`,
+                      background: checked ? T.accent : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {checked && <span style={{ color: 'white', fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize: 13, color: checked ? T.accent : T.text, fontWeight: checked ? 600 : 400, transition: 'color 0.15s' }}>
+                    {name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {error && (
+          <p style={{ color: T.red, fontSize: 13, margin: '0 0 16px' }}>{error}</p>
+        )}
+
+        {/* CTAs */}
+        <button
+          data-testid="wizard-kickoff-submit"
+          onClick={handleComplete}
+          disabled={saving}
+          style={{
+            width: '100%',
+            height: 48,
+            fontSize: 16,
+            fontWeight: 600,
+            background: saving ? T.faint : T.accent,
+            color: 'white',
+            border: 'none',
+            borderRadius: 10,
+            cursor: saving ? 'not-allowed' : 'pointer',
+            transition: 'all 0.15s',
+            fontFamily: 'inherit',
+            marginBottom: 12,
+          }}
+        >
+          {saving ? 'Saving…' : 'Set up my project →'}
+        </button>
+
+        <div style={{ textAlign: 'center' }}>
+          <button
+            data-testid="wizard-kickoff-skip"
+            onClick={onSkip}
+            disabled={saving}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              color: T.muted,
+              fontSize: 13,
+              fontFamily: 'inherit',
+              padding: '4px 8px',
+              textDecoration: 'underline',
+            }}
+          >
+            Skip for now
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Shared Styles ─────────────────────────────────────────────────────────
+// ── Top bar ───────────────────────────────────────────────────────────────────
 
-const screenStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  padding: '40px 24px 80px',
-  background: T.bg,
-};
+function TopBar({
+  step,
+  total,
+  onBack,
+}: {
+  step:    number;
+  total:   number;
+  onBack?: () => void;
+}) {
+  return (
+    <div
+      style={{
+        height: 52,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 24px',
+        borderBottom: `1px solid ${T.border}`,
+        background: T.surface,
+        flexShrink: 0,
+      }}
+    >
+      {/* Back button or spacer */}
+      {onBack ? (
+        <button
+          data-testid="wizard-back"
+          onClick={onBack}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: T.muted,
+            fontSize: 14,
+            fontFamily: 'inherit',
+            padding: '4px 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          ← Back
+        </button>
+      ) : (
+        <div style={{ width: 60 }} />
+      )}
 
-const contentStyle: React.CSSProperties = {
-  width: '100%',
-  maxWidth: 540,
-};
+      {/* Step counter */}
+      <div style={{ fontSize: 12, color: T.faint, fontWeight: 500 }}>
+        Step {step} of {total}
+      </div>
 
-const headlineStyle: React.CSSProperties = {
-  fontSize: 28,
-  fontWeight: 700,
-  letterSpacing: '-0.03em',
-  color: T.text,
-  marginBottom: 6,
-  lineHeight: 1.2,
-  margin: '0 0 6px 0',
-};
+      {/* Shipyard wordmark */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: T.text, opacity: 0.5, width: 60, textAlign: 'right' }}>
+        Shipyard
+      </div>
+    </div>
+  );
+}
 
-const subheadStyle: React.CSSProperties = {
-  fontSize: 15,
-  color: T.muted,
-  marginBottom: 32,
-  lineHeight: 1.5,
-};
+// ── Main component ────────────────────────────────────────────────────────────
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  boxSizing: 'border-box',
-  background: T.surface,
-  border: `1.5px solid ${T.border}`,
-  borderRadius: 10,
-  padding: '13px 16px',
-  fontSize: 14,
-  color: T.text,
-  outline: 'none',
-  transition: 'border-color 0.15s',
-  fontFamily: 'inherit',
-};
+type WizardStep = 'brief' | 'loading' | 'kickoff';
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
-  color: T.text,
-  marginBottom: 8,
-  display: 'block',
-};
+export default function SetupWizardScreen() {
+  const { id: projectId } = useParams<{ id: string }>();
+  const navigate          = useNavigate();
+  const { showToast }     = useToast();
 
-const sublabelStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: T.muted,
-  marginBottom: 8,
-  display: 'block',
-};
+  const [step, setStep] = useState<WizardStep>('brief');
+
+  if (!projectId) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', color: T.muted }}>
+        No project ID — go back and try again.
+      </div>
+    );
+  }
+
+  // ── Screen 1 submit handler ─────────────────────────────────────────────────
+  async function handleBriefSubmit(brief: string) {
+    // Save brief to DB
+    await saveBrief(projectId!, brief);
+
+    // Show loading state
+    setStep('loading');
+
+    // Fire both EFs in parallel + minimum UX delay
+    await Promise.all([
+      triggerExtractFeatures(projectId!),
+      triggerWizardDefaults(projectId!),
+      new Promise<void>(resolve => setTimeout(resolve, 1800)),
+    ]);
+
+    // Proceed to Design Kickoff
+    setStep('kickoff');
+  }
+
+  // ── Screen 2 submit handler ─────────────────────────────────────────────────
+  async function handleKickoffComplete(vibes: string[], urls: string[]) {
+    await saveDesignKickoff(projectId!, vibes, urls);
+    clearSetupDraft(projectId!);
+    showToast('Project set up! Let\'s start building.');
+    navigate(`/projects/${projectId}/triage`);
+  }
+
+  // ── Skip handler ────────────────────────────────────────────────────────────
+  function handleSkip() {
+    clearSetupDraft(projectId!);
+    navigate(`/projects/${projectId}`);
+  }
+
+  // ── Back handler ────────────────────────────────────────────────────────────
+  function handleBack() {
+    setStep('brief');
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        background: T.bg,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      }}
+    >
+      {/* Top bar — hidden during loading */}
+      {step !== 'loading' && (
+        <TopBar
+          step={step === 'brief' ? 1 : 2}
+          total={2}
+          onBack={step === 'kickoff' ? handleBack : undefined}
+        />
+      )}
+
+      {/* Padding above content */}
+      {step !== 'loading' && <div style={{ height: 32 }} />}
+
+      {/* Screens */}
+      {step === 'brief' && (
+        <ScreenBrief
+          projectId={projectId}
+          onNext={handleBriefSubmit}
+        />
+      )}
+
+      {step === 'loading' && <ScreenLoading />}
+
+      {step === 'kickoff' && (
+        <ScreenDesignKickoff
+          projectId={projectId}
+          onComplete={handleKickoffComplete}
+          onSkip={handleSkip}
+        />
+      )}
+    </div>
+  );
+}

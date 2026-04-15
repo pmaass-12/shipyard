@@ -42,6 +42,7 @@ import DistributeOutreachScreen  from '@/screens/Distribute/DistributeOutreachSc
 import MobileChatView            from '@/screens/Mobile/MobileChatView';               // Build 048
 import InfraSetupWizardScreen    from '@/screens/Setup/InfraWizardScreen';              // Build 053 — replaces DeploySetupScreen at /deploy
 import FeatureBoardScreen        from '@/screens/FeatureBoard/FeatureBoardScreen';       // Build 058
+import TriageScreen             from '@/screens/Features/TriageScreen';                  // Build 066
 import DesignGalleryScreen      from '@/screens/DesignGallery/DesignGalleryScreen';     // Build 061
 import PrototypeViewerScreen    from '@/screens/Prototype/PrototypeViewerScreen';       // Build 061
 
@@ -106,6 +107,9 @@ export default function App() {
             {/* Build 058: Feature Board — all features grouped by pipeline stage */}
             <Route path="/projects/:id/features" element={<FeatureBoardScreen />} />
 
+            {/* Build 066: Feature Triage — one-time planning step after brief extraction */}
+            <Route path="/projects/:id/triage" element={<TriageScreen />} />
+
             {/* Build 061: Design Gallery — Designs tab + Flow Map tab */}
             <Route path="/projects/:id/gallery" element={<DesignGalleryScreen />} />
 
@@ -114,6 +118,8 @@ export default function App() {
 
             {/* Build 016: Feature Workflow */}
             <Route path="/projects/:id/features/:featureId" element={<FeatureWorkflowScreen />} />
+            {/* Build 066: /chat alias — navigates directly to the Design (PM chat) step */}
+            <Route path="/projects/:id/features/:featureId/chat" element={<FeatureWorkflowScreen />} />
 
             {/* Build 022: Human Tasks Global View */}
             <Route path="/tasks" element={<HumanTasksScreen />} />

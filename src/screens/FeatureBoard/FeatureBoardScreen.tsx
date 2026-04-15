@@ -29,6 +29,7 @@ interface BoardFeature {
   deployed_to:     DeployTarget | null;
   step_entered_at: string | null;
   screen:          { name: string } | null;
+  triage_status:   string | null;  // Build 066: 'mvp' | 'alpha' | 'beta' | 'removed'
 }
 
 // Map pipeline_step number → assignee persona (for avatar)
@@ -191,20 +192,47 @@ function FeatureCard({
         />
       )}
 
-      {/* Name */}
-      <p style={{
-        margin:      '0 0 6px',
-        paddingLeft: variant === 'ready' ? 24 : 0,
-        fontSize:    13,
-        fontWeight:  500,
-        color:       variant === 'deployed' ? T.muted : T.text,
-        overflow:    'hidden',
-        whiteSpace:  'nowrap',
-        textOverflow:'ellipsis',
-        maxWidth:    '100%',
-      }}>
-        {feature.name}
-      </p>
+      {/* Name + triage badge row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, paddingLeft: variant === 'ready' ? 24 : 0 }}>
+        <p style={{
+          margin:      0,
+          fontSize:    13,
+          fontWeight:  500,
+          color:       variant === 'deployed' ? T.muted : T.text,
+          overflow:    'hidden',
+          whiteSpace:  'nowrap',
+          textOverflow:'ellipsis',
+          minWidth:    0,
+          flex:        1,
+        }}>
+          {feature.name}
+        </p>
+        {/* Build 066: triage badge — muted, not dominant */}
+        {feature.triage_status && feature.triage_status !== 'removed' && (() => {
+          const TRIAGE_BADGE: Record<string, { bg: string; color: string }> = {
+            mvp:   { bg: '#dcfce7', color: '#16a34a' },
+            alpha: { bg: '#dbeafe', color: '#1d4ed8' },
+            beta:  { bg: '#f3f4f6', color: '#6b7280' },
+          };
+          const bm = TRIAGE_BADGE[feature.triage_status];
+          if (!bm) return null;
+          return (
+            <span style={{
+              padding:      '1px 5px',
+              fontSize:     9,
+              fontWeight:   700,
+              letterSpacing:'0.04em',
+              textTransform:'uppercase',
+              color:        bm.color,
+              backgroundColor: bm.bg,
+              borderRadius: 3,
+              flexShrink:   0,
+            }}>
+              {feature.triage_status}
+            </span>
+          );
+        })()}
+      </div>
 
       {/* Meta row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: T.muted }}>
@@ -677,6 +705,8 @@ export default function FeatureBoardScreen() {
   const [toast,          setToast]           = useState<{ target: DeployTarget; count: number } | null>(null);
   const [newFeatureOpen, setNewFeatureOpen]  = useState(false);
   const [isMobile,       setIsMobile]        = useState(window.innerWidth < 768);
+  // Build 066: triage filter — default 'mvp' so builder focuses on MVP first
+  const [triageFilter, setTriageFilter]      = useState<'all' | 'mvp' | 'alpha' | 'beta'>('mvp');
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
@@ -691,7 +721,7 @@ export default function FeatureBoardScreen() {
       const [featureRes, projectRes] = await Promise.all([
         supabase
           .from('features')
-          .select('id, name, pipeline_step, pipeline_status, deployed_at, deployed_to, step_entered_at, screen:screens(name)')
+          .select('id, name, pipeline_step, pipeline_status, deployed_at, deployed_to, step_entered_at, triage_status, screen:screens(name)')
           .eq('project_id', projectId)
           .order('step_entered_at', { ascending: true }),
         supabase
@@ -743,8 +773,15 @@ export default function FeatureBoardScreen() {
     );
   }
 
-  const totalFeatures = features.length;
-  const selectedList  = features.filter(f => selectedIds.has(f.id));
+  // Build 066: apply triage filter; always hide 'removed' features
+  const filteredFeatures = features.filter(f => {
+    if (f.triage_status === 'removed') return false;
+    if (triageFilter === 'all') return true;
+    return f.triage_status === triageFilter;
+  });
+
+  const totalFeatures = filteredFeatures.length;
+  const selectedList  = filteredFeatures.filter(f => selectedIds.has(f.id));
 
   return (
     <div style={{ maxWidth: '100%', padding: '24px 20px', paddingBottom: selectedIds.size > 0 ? 80 : 32 }}>
@@ -759,27 +796,71 @@ export default function FeatureBoardScreen() {
       </nav>
 
       {/* Board header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: T.text }}>Features</h1>
           <span style={{ fontSize: 13, color: T.muted }}>{totalFeatures} feature{totalFeatures !== 1 ? 's' : ''}</span>
         </div>
-        <button
-          data-testid="feature-board-new-btn"
-          onClick={() => setNewFeatureOpen(true)}
-          style={{
-            padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-            border: `1.5px solid ${T.accent}`, backgroundColor: 'transparent',
-            color: T.accent, cursor: 'pointer',
-          }}
-        >
-          + New feature
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link
+            to={`/projects/${projectId}/triage?mode=reprioritize`}
+            style={{ fontSize: 13, color: T.muted, textDecoration: 'none', fontWeight: 500 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T.accent; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = T.muted; }}
+          >
+            Reprioritize →
+          </Link>
+          <button
+            data-testid="feature-board-new-btn"
+            onClick={() => setNewFeatureOpen(true)}
+            style={{
+              padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+              border: `1.5px solid ${T.accent}`, backgroundColor: 'transparent',
+              color: T.accent, cursor: 'pointer',
+            }}
+          >
+            + New feature
+          </button>
+        </div>
+      </div>
+
+      {/* Build 066: Triage filter pills */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+        {(['all', 'mvp', 'alpha', 'beta'] as const).map(pill => {
+          const PILL_COLORS: Record<string, { bg: string; color: string }> = {
+            all:   { bg: '#f3f4f6', color: '#6b7280' },
+            mvp:   { bg: '#dcfce7', color: '#16a34a' },
+            alpha: { bg: '#dbeafe', color: '#1d4ed8' },
+            beta:  { bg: '#f3f4f6', color: '#6b7280' },
+          };
+          const meta    = PILL_COLORS[pill];
+          const active  = triageFilter === pill;
+          const label   = pill.charAt(0).toUpperCase() + pill.slice(1);
+          return (
+            <button
+              key={pill}
+              onClick={() => setTriageFilter(pill)}
+              style={{
+                padding:      '4px 12px',
+                fontSize:     12,
+                fontWeight:   active ? 700 : 500,
+                color:        active ? meta.color : T.muted,
+                background:   active ? meta.bg    : 'transparent',
+                border:       active ? `1.5px solid ${meta.color}44` : `1.5px solid ${T.border}`,
+                borderRadius: 20,
+                cursor:       'pointer',
+                transition:   'all 0.12s',
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Board — desktop horizontal scroll or mobile list */}
       {isMobile ? (
-        <MobileListView features={features} projectId={projectId!} projectPhase={projectPhase} />
+        <MobileListView features={filteredFeatures} projectId={projectId!} projectPhase={projectPhase} />
       ) : (
         <div style={{ overflowX: 'auto', paddingBottom: 12 }}>
           <div style={{ display: 'flex', gap: 12, minWidth: 'max-content', alignItems: 'flex-start' }}>
@@ -787,7 +868,7 @@ export default function FeatureBoardScreen() {
               <BoardColumn
                 key={col.id}
                 def={col}
-                features={features.filter(col.filter)}
+                features={filteredFeatures.filter(col.filter)}
                 projectId={projectId!}
                 projectPhase={projectPhase}
                 selectedIds={selectedIds}

@@ -1,7 +1,7 @@
 // ── Enums (values must match Postgres enums exactly) ─────────────────────
 
 export type ProjectStatus     = 'active' | 'paused' | 'stalled' | 'shipped';
-export type FeatureStatus     = 'design' | 'schema' | 'code_gen' | 'deploy' | 'qa' | 'done';
+export type FeatureStatus     = 'backlog' | 'design' | 'schema' | 'code_gen' | 'deploy' | 'qa' | 'done';
 export type FeatureComplexity = 'simple' | 'medium' | 'complex'; // weights: 1 / 2 / 3 pts
 export type BugSeverity       = 'p0' | 'p1' | 'p2' | 'p3';
 export type BugStatus         = 'open' | 'in_progress' | 'resolved' | 'wontfix';
@@ -228,6 +228,8 @@ export interface ReleaseNoteWithItems extends ReleaseNote {
 // Build 016: new columns on features table
 export type FeaturePriority   = 'p0' | 'p1' | 'p2' | 'p3';
 export type FeatureLifecycle  = 'in_progress' | 'shipped' | 'paused' | 'live';
+// Build 066: planning-phase label set during Feature Triage (separate from status/pipeline step)
+export type TriageStatus      = 'mvp' | 'alpha' | 'beta' | 'removed';
 
 export interface Feature {
   id:              string;
@@ -252,6 +254,8 @@ export interface Feature {
   source:          'manual' | 'widget' | 'change_request';
   screenshot_url:  string | null;
   annotations:     Annotation[] | null;
+  // Build 066: planning-phase label — set once during Feature Triage, does not change
+  triage_status:   TriageStatus;
   created_at:      string;
   updated_at:      string;
 }

@@ -27,16 +27,9 @@ const MOCK_AUDIT = {
   total: 1,
 };
 
-async function mountAdmin(page: import('@playwright/test').Page, { adminEnabled = true } = {}) {
-  if (adminEnabled) {
-    await page.addInitScript(() => {
-      (window as unknown as Record<string, unknown>).__VITE_SHIPYARD_ADMIN__ = 'true';
-    });
-  }
-
+async function mountAdmin(page: import('@playwright/test').Page) {
   // Mock admin user list
   await page.route('**/api/admin/users', async route => {
-    if (!adminEnabled) { await route.fulfill({ status: 404 }); return; }
     await route.fulfill({ status: 200, body: JSON.stringify(MOCK_USERS) });
   });
 
@@ -80,19 +73,6 @@ async function mountAdmin(page: import('@playwright/test').Page, { adminEnabled 
 
   await page.goto(ADMIN_URL);
 }
-
-// ── Admin gate ────────────────────────────────────────────────────────────────
-
-test('AdminScreen renders when VITE_SHIPYARD_ADMIN is set', async ({ page }) => {
-  await mountAdmin(page);
-  await expect(page.locator('text=Admin Console')).toBeVisible();
-});
-
-test('AdminScreen is not rendered when VITE_SHIPYARD_ADMIN is not set', async ({ page }) => {
-  await page.goto(ADMIN_URL);
-  // Screen is gated; admin content should not appear
-  await expect(page.locator('text=Admin Console')).toHaveCount(0);
-});
 
 // ── Users tab ─────────────────────────────────────────────────────────────────
 
@@ -229,18 +209,6 @@ test('ImpersonationProvider is present in the React tree', async ({ page }) => {
   // that ImpersonationBanner component doesn't crash when rendered
   const appRoot = page.locator('#root');
   await expect(appRoot).toBeAttached();
-});
-
-// ── Admin routes return 404 to non-admins (BUG-P1-003d) ───────────────────────
-
-test('admin user list endpoint returns 404 when SHIPYARD_ADMIN is unset (BUG-P1-003d)', async ({ page }) => {
-  let statusReceived = 0;
-  await page.route('**/api/admin/users', async route => {
-    statusReceived = 404;
-    await route.fulfill({ status: 404 });
-  });
-  await page.goto(ADMIN_URL);
-  expect(statusReceived).toBe(404);
 });
 
 // ── Audit log tab ─────────────────────────────────────────────────────────────

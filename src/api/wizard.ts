@@ -95,15 +95,69 @@ export async function saveMonetizationType(
   if (error) throw error;
 }
 
-// ── Completion (Screen 5) ──────────────────────────────────────────────────
+// ── Brief (Build 065 — Screen 1) ─────────────────────────────────────────────
+
+/**
+ * Save the product brief (free-form description) to project_settings.
+ * Called on Screen 1 "Let's go →" before triggering AI extraction.
+ */
+export async function saveBrief(projectId: string, description: string): Promise<void> {
+  const { error } = await supabase
+    .from('project_settings')
+    .upsert(
+      { project_id: projectId, description: description.trim() || null },
+      { onConflict: 'project_id' },
+    );
+  if (error) throw error;
+}
+
+/**
+ * Trigger the extract-features-from-brief edge function.
+ * Non-fatal: logs a warning on failure but does not throw.
+ */
+export async function triggerExtractFeatures(projectId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('extract-features-from-brief', {
+    body: { project_id: projectId },
+  });
+  if (error) {
+    console.warn('[wizard] extract-features non-fatal error:', error);
+  }
+}
+
+// ── Design Kickoff (Build 065 — Screen 2) ────────────────────────────────────
+
+/**
+ * Save design kickoff fields to project_settings.
+ * Called on Screen 2 "Set up my project →".
+ * Requires migrations/065_design_kickoff.sql to be applied.
+ */
+export async function saveDesignKickoff(
+  projectId:       string,
+  designVibe:      string[],
+  inspirationUrls: string[],
+): Promise<void> {
+  const { error } = await supabase
+    .from('project_settings')
+    .upsert(
+      {
+        project_id:       projectId,
+        design_vibe:      designVibe.length > 0 ? designVibe : null,
+        inspiration_urls: inspirationUrls.length > 0 ? inspirationUrls : null,
+      },
+      { onConflict: 'project_id' },
+    );
+  if (error) throw error;
+}
+
+// ── Completion ────────────────────────────────────────────────────────────────
 
 /**
  * Trigger wizard defaults edge function.
- * Called on Screen 5 "Let's start building" CTA.
+ * Seeds the project with 4–6 suggested screens and 3–5 features.
  *
  * Uses supabase.functions.invoke() so auth is handled automatically.
  * Non-fatal: logs a warning on failure but does not throw, so the user
- * always advances to the hub even if scaffolding generation fails.
+ * always advances even if scaffolding generation fails.
  */
 export async function triggerWizardDefaults(projectId: string): Promise<void> {
   const { error } = await supabase.functions.invoke('generate-wizard-defaults', {
